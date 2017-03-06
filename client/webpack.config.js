@@ -7,6 +7,10 @@ var child_process = require('child_process');
 
 var TIER = process.env.TIER || 'development';
 
+if (process.env.API_HOST) {
+  console.log('API HOST:', process.env.API_HOST);
+}
+
 let gitVersion = child_process.execSync('git rev-parse HEAD', {
   encoding: 'utf8'
 });
