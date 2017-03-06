@@ -25,10 +25,14 @@ init flags location =
 
 parseGoodReadsUserIdFromPath : Navigation.Location -> List String
 parseGoodReadsUserIdFromPath location =
-    UrlParser.parsePath (UrlParser.s "" <?> UrlParser.stringParam "goodReadsUserId") location
-        |> Maybe.andThen identity
-        |> Maybe.map (String.split ",")
-        |> Maybe.withDefault []
+    let
+        pathParser =
+            UrlParser.oneOf [ UrlParser.s "", UrlParser.s "what-to-read-next" ]
+    in
+        UrlParser.parsePath (pathParser <?> UrlParser.stringParam "goodReadsUserId") location
+            |> Maybe.andThen identity
+            |> Maybe.map (String.split ",")
+            |> Maybe.withDefault []
 
 
 updatedUrl : Model -> String
