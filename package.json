@@ -10,7 +10,7 @@
     "start-server-dev": "cd server && yarn start-dev",
     "start-client-dev": "cd client && yarn start",
     "deploy-server": "git push heroku `git subtree split --prefix server master`:master --force",
-    "deploy-client": "source .env && cd client && yarn deploy"
+    "deploy-client": "source .env && cd client && yarn build && yarn deploy"
   },
   "dependencies": {},
   "devDependencies": {
