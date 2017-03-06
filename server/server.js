@@ -56,14 +56,15 @@ app.get('/api/goodreads', (req, res) => {
         }
 
         const books = result.rss.channel[0].item.map(rawBook => {
+          const goodreadsId = rawBook.book_id[0];
           const numberOfPages = parseInt(rawBook.book[0].num_pages[0]);
           const published = parseInt(rawBook.book_published[0]);
 
           return {
-            id: rawBook.book_id[0],
+            id: goodreadsId,
             title: rawBook.title[0],
             description: rawBook.book_description[0],
-            url: rawBook.link[0],
+            url: `https://www.goodreads.com/book/show/${goodreadsId}`,
             isbn: rawBook.isbn[0],
             authors: rawBook.author_name,
             numberOfPages: numberOfPages,
