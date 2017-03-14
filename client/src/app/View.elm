@@ -13,7 +13,7 @@ import Dict exposing (Dict)
 
 
 rootView : Model -> Html Msg
-rootView { goodReadsUserIdInputCurrentValue, lists, books, tableState, buildInfo } =
+rootView { goodReadsUserIdInputCurrentValue, lists, books, errorMessage, tableState, buildInfo } =
     let
         list =
             Dict.values lists
@@ -43,6 +43,12 @@ rootView { goodReadsUserIdInputCurrentValue, lists, books, tableState, buildInfo
                             Table.view config tableState expandedList
                     ]
                 ]
+            , case errorMessage of
+                Just message ->
+                    div [ id "error" ] [ text message ]
+
+                _ ->
+                    div [ id "error" ] []
             , div [ id "footer" ]
                 [ buildInfoView buildInfo
                 ]
@@ -56,7 +62,7 @@ config =
         , toMsg = SetTableState
         , columns =
             [ titleColumn
-            , Table.stringColumn "Authors" (\book -> String.join ", " book.authors)
+            , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
             , Table.stringColumn "Publication Year" (\book -> Maybe.withDefault "?" (Maybe.map toString book.published))
             , Table.intColumn "Average Rating" (.averageRating >> round)
             , Table.stringColumn "Number of Pages" (\book -> Maybe.withDefault "?" (Maybe.map toString book.numberOfPages))

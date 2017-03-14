@@ -5,6 +5,7 @@ import Api
 import Types exposing (..)
 import Utils
 import Navigation
+import Http
 import UrlParser exposing ((<?>))
 
 
@@ -65,7 +66,25 @@ update msg model =
                 newModel ! [ Navigation.modifyUrl (updatedUrl newModel) ]
 
         LoadGoodreadsToReadList goodReadsUserId (Err error) ->
-            model ! []
+            let
+                errorMessage =
+                    case error of
+                        Http.BadUrl url ->
+                            ("Bad url" ++ url)
+
+                        Http.Timeout ->
+                            "Timeout"
+
+                        Http.NetworkError ->
+                            "Network Error"
+
+                        Http.BadStatus response ->
+                            response.body
+
+                        Http.BadPayload desc response ->
+                            desc
+            in
+                { model | errorMessage = Just errorMessage } ! []
 
         LoadGoodreadsToReadList goodReadsUserId (Ok books) ->
             let

@@ -6,7 +6,7 @@
     "bootstrap": "concurrently \"yarn run bootstrap-server\" \"yarn run bootstrap-client\"",
     "bootstrap-server": "cd server && yarn install",
     "bootstrap-client": "cd client && yarn install",
-    "start-dev": "concurrently \"yarn run start-server-dev\" \"yarn run start-client-dev\"",
+    "start-dev": "source .env && concurrently \"yarn run start-server-dev\" \"yarn run start-client-dev\"",
     "start-server-dev": "cd server && yarn start-dev",
     "start-client-dev": "cd client && yarn start",
     "deploy-server": "git push heroku `git subtree split --prefix server master`:master --force",

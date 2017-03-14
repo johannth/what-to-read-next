@@ -13,6 +13,7 @@ type alias Model =
     , goodReadsUserIdInputCurrentValue : String
     , lists : Dict.Dict String (List String)
     , books : Dict.Dict String Book
+    , errorMessage : Maybe String
     , buildInfo : BuildInfo
     , tableState : Table.State
     }
@@ -33,8 +34,18 @@ emptyModel flags =
     , goodReadsUserIdInputCurrentValue = ""
     , lists = Dict.empty
     , books = Dict.empty
+    , errorMessage = Nothing
     , tableState = Table.initialSort "Priority"
     , buildInfo = BuildInfo flags.buildVersion flags.buildTime flags.buildTier
+    }
+
+
+type alias Author =
+    { id : String
+    , name : String
+    , averageRating : Float
+    , ratingsCount : Int
+    , textReviewsCount : Int
     }
 
 
@@ -43,8 +54,7 @@ type alias Book =
     , title : String
     , description : String
     , url : String
-    , isbn : String
-    , authors : List String
+    , authors : List Author
     , numberOfPages : Maybe Int
     , averageRating : Float
     , published : Maybe Int
