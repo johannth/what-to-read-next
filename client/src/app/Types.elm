@@ -65,6 +65,7 @@ type alias Book =
 
 type alias PriorityWeights =
     { rating : Float
+    , authors : Float
     , length : Float
     }
 

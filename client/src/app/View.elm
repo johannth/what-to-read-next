@@ -63,6 +63,7 @@ config =
         , columns =
             [ titleColumn
             , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
+            , Table.intColumn "Average Rating of Authors" (.authors >> State.calculateAuthorsAverageRating)
             , Table.stringColumn "Publication Year" (\book -> Maybe.withDefault "?" (Maybe.map toString book.published))
             , Table.intColumn "Average Rating" (.averageRating >> round)
             , Table.intColumn "# of Ratings" .ratingsCount

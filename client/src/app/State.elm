@@ -1,4 +1,4 @@
-module State exposing (init, update, calculatePriority, calculatePriorityWithWeights, defaultPriorityWeights)
+module State exposing (init, update, calculatePriority, calculatePriorityWithWeights, defaultPriorityWeights, calculateAuthorsAverageRating)
 
 import Dict
 import Api
@@ -113,8 +113,32 @@ calculatePriority =
     calculatePriorityWithWeights defaultPriorityWeights
 
 
+optimalBookLengthInPages : Float
 optimalBookLengthInPages =
     300
+
+
+sum : List Float -> Float
+sum values =
+    List.foldl (+) 0 values
+
+
+interpolation : List Float -> List Float -> Float
+interpolation weights values =
+    List.map2 (*) weights values
+        |> sum
+
+
+calculateAuthorsAverageRating : List Author -> Int
+calculateAuthorsAverageRating authors =
+    let
+        authorsCount =
+            List.length authors
+
+        averageRating =
+            interpolation (List.repeat authorsCount (1 / (toFloat authorsCount))) (List.map .averageRating authors)
+    in
+        round averageRating
 
 
 calculatePriorityWithWeights : PriorityWeights -> Book -> Float
@@ -122,8 +146,15 @@ calculatePriorityWithWeights weights book =
     let
         normalizedBookLength =
             normalizeBookLength (Maybe.withDefault optimalBookLengthInPages (Maybe.map toFloat book.numberOfPages))
+
+        authorsAverageRating =
+            calculateAuthorsAverageRating book.authors
     in
-        weights.length * normalizedBookLength + weights.rating * book.averageRating
+        interpolation [ weights.length, weights.authors, weights.rating ]
+            [ normalizedBookLength
+            , toFloat authorsAverageRating
+            , book.averageRating
+            ]
 
 
 normalizeBookLength : Float -> Float
@@ -142,6 +173,7 @@ normalizeBookLengthWithParameters optimalBookLengthInPages optimalBookLengthScor
 
 defaultPriorityWeights : PriorityWeights
 defaultPriorityWeights =
-    { rating = 0.7
+    { rating = 0.5
+    , authors = 0.2
     , length = 0.3
     }
