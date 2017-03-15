@@ -65,6 +65,7 @@ type alias PriorityWeights =
     { rating : Float
     , authors : Float
     , secret : Float
+    , passion : Float
     , length : Float
     }
 

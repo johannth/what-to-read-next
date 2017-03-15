@@ -1,4 +1,4 @@
-module State exposing (init, update, calculatePriority, calculatePriorityWithWeights, defaultPriorityWeights, calculateAuthorsAverageRating, calculatePopularity, renderPriorityFormula)
+module State exposing (init, update, calculatePriority, calculatePriorityWithWeights, defaultPriorityWeights, calculateAuthorsAverageRating, calculatePopularity, renderPriorityFormula, calculatePassion)
 
 import Dict
 import Api
@@ -136,6 +136,7 @@ calculatePriorityValues book =
         [ normalizedAverageRating
         , toFloat authorsAverageRating
         , 100 - popularity
+        , toFloat (calculatePassion book)
         , normalizedBookLength
         ]
 
@@ -196,13 +197,22 @@ calculatePopularity book =
         averageRatingsCount =
             5000
 
-        averageValueForAverageRatingsCount =
+        ratingForAverage =
             0.6
 
         f =
-            increasingFunction averageRatingsCount averageValueForAverageRatingsCount
+            increasingFunction averageRatingsCount ratingForAverage
     in
         round (f (toFloat book.ratingsCount) * 100)
+
+
+
+-- By passion we're trying to capture effort put into book (now by looking at percentage of text reviews)
+
+
+calculatePassion : Book -> Int
+calculatePassion book =
+    round (((toFloat book.textReviewsCount) / (toFloat book.ratingsCount)) * 100)
 
 
 normalizeBookLength : Float -> Float
@@ -221,13 +231,14 @@ normalizeBookLengthWithParameters optimalBookLengthInPages optimalBookLengthScor
 
 defaultPriorityWeights : PriorityWeights
 defaultPriorityWeights =
-    { rating = 0.4
+    { rating = 0.35
     , authors = 0.2
     , secret = 0.2
+    , passion = 0.05
     , length = 0.2
     }
 
 
 priorityWeightsToList : PriorityWeights -> List Float
 priorityWeightsToList weights =
-    [ weights.rating, weights.authors, weights.secret, weights.length ]
+    [ weights.rating, weights.authors, weights.secret, weights.passion, weights.length ]

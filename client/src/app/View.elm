@@ -69,6 +69,7 @@ config =
             , Table.intColumn "# of Ratings" .ratingsCount
             , Table.intColumn "# of Text Reviews" .textReviewsCount
             , Table.intColumn "Popularity" State.calculatePopularity
+            , Table.intColumn "Passion" State.calculatePassion
             , Table.stringColumn "Number of Pages" (\book -> Maybe.withDefault "?" (Maybe.map toString book.numberOfPages))
             , priorityColumn
             ]
