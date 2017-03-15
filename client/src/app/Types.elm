@@ -57,6 +57,8 @@ type alias Book =
     , authors : List Author
     , numberOfPages : Maybe Int
     , averageRating : Float
+    , ratingsCount : Int
+    , textReviewsCount : Int
     , published : Maybe Int
     }
 

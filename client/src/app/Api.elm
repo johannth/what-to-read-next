@@ -3,7 +3,7 @@ module Api exposing (getGoodreadsToReadData)
 import Json.Decode as Decode
 import Http
 import Types exposing (..)
-import Utils exposing (map9)
+import Utils exposing (map10)
 
 
 apiUrl : String -> String -> String
@@ -24,7 +24,7 @@ decodeReadingList =
 
 decodeBook : Decode.Decoder Book
 decodeBook =
-    Decode.map8 Book
+    map10 Book
         (Decode.field "id" Decode.string)
         (Decode.field "title" Decode.string)
         (Decode.field "description" Decode.string)
@@ -32,6 +32,8 @@ decodeBook =
         (Decode.field "authors" (Decode.list decodeAuthor))
         (Decode.maybe (Decode.field "numberOfPages" Decode.int))
         (Decode.field "averageRating" Decode.float)
+        (Decode.field "ratingsCount" Decode.int)
+        (Decode.field "textReviewsCount" Decode.int)
         (Decode.maybe (Decode.field "published" Decode.int))
 
 
