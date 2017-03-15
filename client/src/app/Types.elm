@@ -4,8 +4,6 @@ import Table
 import Dict
 import Http
 import Navigation
-import Date exposing (Date)
-import Set exposing (Set)
 
 
 type alias Model =
@@ -66,6 +64,7 @@ type alias Book =
 type alias PriorityWeights =
     { rating : Float
     , authors : Float
+    , secret : Float
     , length : Float
     }
 

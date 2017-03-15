@@ -1,4 +1,4 @@
-module State exposing (init, update, calculatePriority, calculatePriorityWithWeights, defaultPriorityWeights, calculateAuthorsAverageRating)
+module State exposing (init, update, calculatePriority, calculatePriorityWithWeights, defaultPriorityWeights, calculateAuthorsAverageRating, calculatePopularity, renderPriorityFormula)
 
 import Dict
 import Api
@@ -113,20 +113,60 @@ calculatePriority =
     calculatePriorityWithWeights defaultPriorityWeights
 
 
+calculatePriorityWithWeights : PriorityWeights -> Book -> Float
+calculatePriorityWithWeights weights book =
+    interpolation (priorityWeightsToList weights) (calculatePriorityValues book)
+
+
+calculatePriorityValues : Book -> List Float
+calculatePriorityValues book =
+    let
+        normalizedBookLength =
+            normalizeBookLength (Maybe.withDefault optimalBookLengthInPages (Maybe.map toFloat book.numberOfPages))
+
+        popularity =
+            toFloat (calculatePopularity book)
+
+        normalizedAverageRating =
+            book.averageRating * (popularity / 100)
+
+        authorsAverageRating =
+            calculateAuthorsAverageRating book.authors
+    in
+        [ normalizedAverageRating
+        , toFloat authorsAverageRating
+        , 100 - popularity
+        , normalizedBookLength
+        ]
+
+
+renderPriorityFormula : Book -> String
+renderPriorityFormula book =
+    let
+        weightsAsStrings =
+            List.map toString (priorityWeightsToList defaultPriorityWeights)
+
+        valuesAsString =
+            List.map (round >> toString) (calculatePriorityValues book)
+
+        priority =
+            round (calculatePriority book)
+
+        formula =
+            List.map2 (\x y -> x ++ " * " ++ y) weightsAsStrings valuesAsString |> String.join " + "
+    in
+        formula ++ " = " ++ (toString priority)
+
+
 optimalBookLengthInPages : Float
 optimalBookLengthInPages =
     300
 
 
-sum : List Float -> Float
-sum values =
-    List.foldl (+) 0 values
-
-
 interpolation : List Float -> List Float -> Float
 interpolation weights values =
     List.map2 (*) weights values
-        |> sum
+        |> List.sum
 
 
 calculateAuthorsAverageRating : List Author -> Int
@@ -141,20 +181,28 @@ calculateAuthorsAverageRating authors =
         round averageRating
 
 
-calculatePriorityWithWeights : PriorityWeights -> Book -> Float
-calculatePriorityWithWeights weights book =
+increasingFunction : Float -> Float -> Float -> Float
+increasingFunction averageX averageY x =
     let
-        normalizedBookLength =
-            normalizeBookLength (Maybe.withDefault optimalBookLengthInPages (Maybe.map toFloat book.numberOfPages))
-
-        authorsAverageRating =
-            calculateAuthorsAverageRating book.authors
+        a =
+            1 / averageX * (1 / (1 - averageY) - 1)
     in
-        interpolation [ weights.length, weights.authors, weights.rating ]
-            [ normalizedBookLength
-            , toFloat authorsAverageRating
-            , book.averageRating
-            ]
+        1 - 1 / (a * x + 1)
+
+
+calculatePopularity : Book -> Int
+calculatePopularity book =
+    let
+        averageRatingsCount =
+            5000
+
+        averageValueForAverageRatingsCount =
+            0.6
+
+        f =
+            increasingFunction averageRatingsCount averageValueForAverageRatingsCount
+    in
+        round (f (toFloat book.ratingsCount) * 100)
 
 
 normalizeBookLength : Float -> Float
@@ -173,7 +221,13 @@ normalizeBookLengthWithParameters optimalBookLengthInPages optimalBookLengthScor
 
 defaultPriorityWeights : PriorityWeights
 defaultPriorityWeights =
-    { rating = 0.5
+    { rating = 0.4
     , authors = 0.2
-    , length = 0.3
+    , secret = 0.2
+    , length = 0.2
     }
+
+
+priorityWeightsToList : PriorityWeights -> List Float
+priorityWeightsToList weights =
+    [ weights.rating, weights.authors, weights.secret, weights.length ]

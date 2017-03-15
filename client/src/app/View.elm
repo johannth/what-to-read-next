@@ -68,6 +68,7 @@ config =
             , Table.intColumn "Average Rating" (.averageRating >> round)
             , Table.intColumn "# of Ratings" .ratingsCount
             , Table.intColumn "# of Text Reviews" .textReviewsCount
+            , Table.intColumn "Popularity" State.calculatePopularity
             , Table.stringColumn "Number of Pages" (\book -> Maybe.withDefault "?" (Maybe.map toString book.numberOfPages))
             , priorityColumn
             ]
@@ -97,11 +98,18 @@ linkCell title url =
 
 priorityColumn : Table.Column Book Msg
 priorityColumn =
-    Table.customColumn
+    Table.veryCustomColumn
         { name = "Priority"
-        , viewData = State.calculatePriority >> round >> toString
+        , viewData = \book -> cellWithToolTip (State.renderPriorityFormula book) ((State.calculatePriority book) |> round |> toString)
         , sorter = Table.decreasingOrIncreasingBy State.calculatePriority
         }
+
+
+cellWithToolTip : String -> String -> Table.HtmlDetails Msg
+cellWithToolTip tooltip value =
+    Table.HtmlDetails []
+        [ span [ title tooltip ] [ text value ]
+        ]
 
 
 userIdView : String -> Html Msg
