@@ -1,11 +1,27 @@
 module Utils exposing (..)
 
+import Dict exposing (Dict)
 import Json.Decode as Decode
 
 
 lift2 : (a -> b) -> (a -> c) -> (a -> ( b, c ))
 lift2 f g =
     \x -> ( f x, g x )
+
+
+leftJoin : Dict String a -> Dict String b -> Dict String ( a, b )
+leftJoin dictA dictB =
+    Dict.toList dictA
+        |> List.filterMap
+            (\( key, valueOfTypeA ) ->
+                case Dict.get key dictB of
+                    Just valueOfTypeB ->
+                        Just ( key, ( valueOfTypeA, valueOfTypeB ) )
+
+                    _ ->
+                        Nothing
+            )
+        |> Dict.fromList
 
 
 maybeHasValue : Maybe a -> Bool

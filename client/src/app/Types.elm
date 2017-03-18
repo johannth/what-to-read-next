@@ -10,8 +10,9 @@ import Navigation
 type alias Model =
     { apiHost : String
     , goodReadsUserIdInputCurrentValue : String
-    , shelves : Dict String (Dict String (List String))
-    , read : Dict String (Dict String ReadStatus)
+    , goodReadsUserId : Maybe String
+    , shelves : Dict String (List String)
+    , read : Dict String ReadStatus
     , books : Dict String Book
     , errorMessage : Maybe String
     , buildInfo : BuildInfo
@@ -32,6 +33,7 @@ emptyModel : Flags -> Model
 emptyModel flags =
     { apiHost = flags.apiHost
     , goodReadsUserIdInputCurrentValue = ""
+    , goodReadsUserId = Nothing
     , shelves = Dict.empty
     , read = Dict.empty
     , books = Dict.empty

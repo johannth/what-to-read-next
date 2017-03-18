@@ -1,7 +1,6 @@
 module View exposing (rootView)
 
 import Table
-import Set exposing (Set)
 import Dict
 import State
 import Json.Decode as Decode
@@ -10,17 +9,18 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Types exposing (..)
 import Dict exposing (Dict)
+import Round
 
 
 rootView : Model -> Html Msg
-rootView { goodReadsUserIdInputCurrentValue, shelves, books, errorMessage, tableState, buildInfo } =
+rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, read, errorMessage, tableState, buildInfo } =
     let
+        expectedMinutesPerPageMultiplier =
+            State.calculateExpectedMinutesPerPageMultiplier books read
+
         list =
-            Dict.values shelves
-                |> List.map (Dict.get "to-read" >> (Maybe.withDefault []))
-                |> List.map Set.fromList
-                |> List.foldl Set.union Set.empty
-                |> Set.toList
+            (Dict.get "to-read" shelves)
+                |> Maybe.withDefault []
 
         expandedList =
             List.filterMap (\bookId -> Dict.get bookId books) list
@@ -29,19 +29,22 @@ rootView { goodReadsUserIdInputCurrentValue, shelves, books, errorMessage, table
             [ h1 [ id "title" ] [ text "What should I read next?" ]
             , div [ id "body" ]
                 [ userIdTextInput goodReadsUserIdInputCurrentValue
-                , div [ id "users" ] (Dict.keys shelves |> List.map userIdView)
+                , userIdView goodReadsUserId
+                , readingSpeedView expectedMinutesPerPageMultiplier
                 , div [ id "list" ]
                     [ case list of
                         [] ->
                             text
-                                (if Dict.size shelves > 0 then
-                                    "Loading..."
-                                 else
-                                    ""
+                                (case goodReadsUserId of
+                                    Just _ ->
+                                        "Loading..."
+
+                                    _ ->
+                                        ""
                                 )
 
                         list ->
-                            Table.view config tableState expandedList
+                            Table.view (config expectedMinutesPerPageMultiplier) tableState expandedList
                     ]
                 ]
             , case errorMessage of
@@ -56,8 +59,8 @@ rootView { goodReadsUserIdInputCurrentValue, shelves, books, errorMessage, table
             ]
 
 
-config : Table.Config Book Msg
-config =
+config : Maybe Float -> Table.Config Book Msg
+config expectedMinutesPerPageMultiplier =
     Table.config
         { toId = .id
         , toMsg = SetTableState
@@ -72,6 +75,7 @@ config =
             , Table.intColumn "Popularity" State.calculatePopularity
             , Table.intColumn "Passion" State.calculatePassion
             , Table.stringColumn "Number of Pages" (\book -> Maybe.withDefault "?" (Maybe.map toString book.numberOfPages))
+            , readingTimeColumn expectedMinutesPerPageMultiplier
             , priorityColumn
             ]
         }
@@ -98,6 +102,31 @@ linkCell title url =
         ]
 
 
+prettyPrintReadingTime : Float -> String
+prettyPrintReadingTime readingTimeInMinutes =
+    if readingTimeInMinutes < 60 then
+        Round.round 1 readingTimeInMinutes ++ " min"
+    else if readingTimeInMinutes < (24 * 60) then
+        Round.round 1 (readingTimeInMinutes / 60) ++ " hours"
+    else
+        Round.round 1 (readingTimeInMinutes / (24 * 60)) ++ " days"
+
+
+readingTimeColumn : Maybe Float -> Table.Column Book Msg
+readingTimeColumn expectedMinutesPerPageMultiplier =
+    let
+        readingTime =
+            \book ->
+                case ( book.numberOfPages, expectedMinutesPerPageMultiplier ) of
+                    ( Just numberOfPages, Just expectedMinutesPerPageMultiplier ) ->
+                        State.calculateExpectedReadingTimeInMinutes expectedMinutesPerPageMultiplier numberOfPages |> prettyPrintReadingTime
+
+                    _ ->
+                        "?"
+    in
+        Table.stringColumn "Expected Reading Time" readingTime
+
+
 priorityColumn : Table.Column Book Msg
 priorityColumn =
     Table.veryCustomColumn
@@ -114,13 +143,20 @@ cellWithToolTip tooltip value =
         ]
 
 
-userIdView : String -> Html Msg
-userIdView userId =
-    span [ class "user-link" ]
-        [ a [ target "_blank", href ("https://www.goodreads.com/review/list/" ++ userId ++ "?shelf=to-read") ]
-            [ text userId
-            ]
-        , a [ class "user-remove-button", href "#", Html.Events.onClick (ClearList userId) ] [ text "x" ]
+userIdView : Maybe String -> Html Msg
+userIdView maybeUserId =
+    div [ id "users" ]
+        [ case maybeUserId of
+            Just userId ->
+                span [ class "user-link" ]
+                    [ a [ target "_blank", href ("https://www.goodreads.com/review/list/" ++ userId ++ "?shelf=to-read") ]
+                        [ text userId
+                        ]
+                    , a [ class "user-remove-button", href "#", Html.Events.onClick (ClearList userId) ] [ text "x" ]
+                    ]
+
+            _ ->
+                span [] []
         ]
 
 
@@ -155,3 +191,15 @@ onEnter msg =
                 Html.Events.targetValue
     in
         Html.Events.on "keydown" decodeEnterWithValue
+
+
+readingSpeedView : Maybe Float -> Html Msg
+readingSpeedView maybeAverageMinutesPerPage =
+    div [ id "readingSpeed" ]
+        [ case maybeAverageMinutesPerPage of
+            Just averageMinutesPerPage ->
+                text ("It takes you " ++ (prettyPrintReadingTime (averageMinutesPerPage * 100)) ++ " to read 100 pages based on your reading history")
+
+            _ ->
+                text ""
+        ]

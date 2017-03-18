@@ -47,7 +47,7 @@ decodeBook =
         (Decode.field "description" Decode.string)
         (Decode.field "url" Decode.string)
         (Decode.field "authors" (Decode.list decodeAuthor))
-        (Decode.maybe (Decode.field "numberOfPages" Decode.int))
+        (Decode.field "numberOfPages" (Decode.nullable Decode.int))
         (Decode.field "averageRating" Decode.float)
         (Decode.field "ratingsCount" Decode.int)
         (Decode.field "textReviewsCount" Decode.int)

@@ -1,30 +1,29 @@
-module State exposing (init, update, calculatePriority, calculatePriorityWithWeights, defaultPriorityWeights, calculateAuthorsAverageRating, calculatePopularity, renderPriorityFormula, calculatePassion)
+module State exposing (..)
 
 import Dict exposing (Dict)
+import Date exposing (Date)
 import Api
 import Types exposing (..)
-import Utils
 import Navigation
 import Http
 import UrlParser exposing ((<?>))
+import Statistics
+import Utils
 
 
 init : Flags -> Navigation.Location -> ( Model, Cmd Msg )
 init flags location =
     let
-        userIdsFromPath =
+        userIdFromPath =
             parseGoodReadsUserIdFromPath location
 
         initialModel =
             emptyModel flags
-
-        initalShelves =
-            Dict.fromList (List.map (Utils.lift2 identity (always Dict.empty)) userIdsFromPath)
     in
-        { initialModel | shelves = initalShelves } ! List.concatMap (Api.fetchUserData initialModel.apiHost) userIdsFromPath
+        { initialModel | goodReadsUserId = userIdFromPath } ! Maybe.withDefault [] (Maybe.map (Api.fetchUserData initialModel.apiHost) userIdFromPath)
 
 
-parseGoodReadsUserIdFromPath : Navigation.Location -> List String
+parseGoodReadsUserIdFromPath : Navigation.Location -> Maybe String
 parseGoodReadsUserIdFromPath location =
     let
         pathParser =
@@ -32,13 +31,16 @@ parseGoodReadsUserIdFromPath location =
     in
         UrlParser.parsePath (pathParser <?> UrlParser.stringParam "goodReadsUserId") location
             |> Maybe.andThen identity
-            |> Maybe.map (String.split ",")
-            |> Maybe.withDefault []
 
 
 updatedUrl : Model -> String
 updatedUrl model =
-    "?goodReadsUserId=" ++ (String.join "," (Dict.keys model.shelves))
+    case model.goodReadsUserId of
+        Just goodReadsUserId ->
+            "?goodReadsUserId=" ++ goodReadsUserId
+
+        _ ->
+            "?"
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -52,7 +54,8 @@ update msg model =
                 newModel =
                     { model
                         | goodReadsUserIdInputCurrentValue = ""
-                        , shelves = Dict.insert goodReadsUserId Dict.empty model.shelves
+                        , goodReadsUserId = Just goodReadsUserId
+                        , shelves = Dict.empty
                     }
             in
                 newModel
@@ -63,7 +66,7 @@ update msg model =
         ClearList goodReadsUserId ->
             let
                 newModel =
-                    { model | shelves = Dict.remove goodReadsUserId model.shelves }
+                    { model | goodReadsUserId = Nothing, shelves = Dict.empty, read = Dict.empty }
             in
                 newModel ! [ Navigation.modifyUrl (updatedUrl newModel) ]
 
@@ -89,19 +92,12 @@ update msg model =
                 { model | errorMessage = Just errorMessage } ! []
 
         LoadGoodreadsToReadList goodReadsUserId shelf (Ok ( list, books, readStatuses )) ->
-            let
-                currentShelves =
-                    Maybe.withDefault Dict.empty (Dict.get goodReadsUserId model.shelves)
-
-                newShelves =
-                    Dict.insert shelf list currentShelves
-            in
-                { model
-                    | shelves = Dict.insert goodReadsUserId newShelves model.shelves
-                    , books = Dict.union books model.books
-                    , read = Dict.insert goodReadsUserId readStatuses model.read
-                }
-                    ! []
+            { model
+                | shelves = Dict.insert shelf list model.shelves
+                , books = Dict.union books model.books
+                , read = Dict.union readStatuses model.read
+            }
+                ! []
 
         SetTableState newState ->
             { model | tableState = newState } ! []
@@ -244,3 +240,47 @@ defaultPriorityWeights =
 priorityWeightsToList : PriorityWeights -> List Float
 priorityWeightsToList weights =
     [ weights.rating, weights.authors, weights.secret, weights.passion, weights.length ]
+
+
+calculateExpectedMinutesPerPageMultiplier : Dict String Book -> Dict String ReadStatus -> Maybe Float
+calculateExpectedMinutesPerPageMultiplier books readStatues =
+    let
+        readStatuesAndBooks =
+            Utils.leftJoin readStatues books
+
+        averageMinutesPerPagePerBook =
+            Dict.values readStatuesAndBooks
+                |> (List.filterMap
+                        (\( readStatus, book ) ->
+                            case ( book.numberOfPages, readStatus.finishedReading ) of
+                                ( Just numberOfPages, Just finishedReading ) ->
+                                    Just (calculateAverageMinutesPerPage numberOfPages readStatus.startedReading finishedReading)
+
+                                _ ->
+                                    Nothing
+                        )
+                   )
+    in
+        case averageMinutesPerPagePerBook of
+            [] ->
+                Nothing
+
+            _ ->
+                Just (Statistics.median averageMinutesPerPagePerBook)
+
+
+calculateAverageMinutesPerPage : Int -> Date -> Date -> Float
+calculateAverageMinutesPerPage numberOfPages startedReading finishedReading =
+    let
+        durationInMs =
+            Date.toTime finishedReading - Date.toTime startedReading
+
+        durationInMinutes =
+            durationInMs / 60000
+    in
+        durationInMinutes / toFloat numberOfPages
+
+
+calculateExpectedReadingTimeInMinutes : Float -> Int -> Float
+calculateExpectedReadingTimeInMinutes expectedMinutesPerPageMultiplier numberOfPages =
+    expectedMinutesPerPageMultiplier * toFloat numberOfPages
