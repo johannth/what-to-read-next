@@ -31,7 +31,7 @@ const handleErrors = response => {
   return response;
 };
 
-const getJsonFromCache = cache => key => {
+const getFromCache = cache => key => {
   if (process.env.DISABLE_CACHE) {
     return Promise.resolve(null);
   }
@@ -43,7 +43,7 @@ const getJsonFromCache = cache => key => {
     }
   });
 };
-const saveJsonToCache = cache => (key, value, expiryInSeconds) => {
+const saveToCache = cache => (key, value, expiryInSeconds) => {
   return cache.setexAsync(key, expiryInSeconds, JSON.stringify(value));
 };
 
@@ -62,77 +62,95 @@ const buildReadStatusForBook = (rawStartedReading, rawFinishedReading) => {
   }
 };
 
+const goodReadsCacheKey = url => `goodreads:${url}`;
+
+const goodreadsApiRequest = (url, expiryInSeconds) => {
+  return getFromCache(cache)(goodReadsCacheKey(url)).then(result => {
+    if (result) {
+      console.log(`Serving ${url} from cache`);
+      return result;
+    } else {
+      return fetch(url).then(response => response.text()).then(xmlBody => {
+        return new Promise((resolve, reject) => {
+          parseString(xmlBody, (error, result) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+            saveToCache(cache)(
+              goodReadsCacheKey(url),
+              result,
+              expiryInSeconds
+            ).then(() => resolve(result));
+          });
+        });
+      });
+    }
+  });
+};
+
 const fetchBooks = (userId, shelf) => {
   const url = `https://www.goodreads.com/review/list/${userId}.xml?key=${GOODREADS_API_KEY}&v=2&per_page=200&shelf=${shelf}`;
   console.log(url);
-  return fetch(url).then(response => response.text()).then(xmlBody => {
-    return new Promise((resolve, reject) => {
-      parseString(xmlBody, (error, result) => {
-        if (error) {
-          reject(error);
-          return;
-        }
+  return goodreadsApiRequest(url, 60 * 15).then(result => {
+    const data = result.GoodreadsResponse.reviews[0].review.map(review => {
+      const book = review.book[0];
+      const goodreadsId = book.id[0]['_'];
+      const numberOfPages = parseInt(book.num_pages[0]);
+      const published = parseInt(book.publication_year[0]);
 
-        const data = result.GoodreadsResponse.reviews[0].review.map(review => {
-          const book = review.book[0];
-          const goodreadsId = book.id[0]['_'];
-          const numberOfPages = parseInt(book.num_pages[0]);
-          const published = parseInt(book.publication_year[0]);
-
-          const bookData = {
-            id: goodreadsId,
-            title: book.title[0],
-            description: book.description[0],
-            url: `https://www.goodreads.com/book/show/${goodreadsId}`,
-            authors: book.authors.map(authorObject => {
-              const author = authorObject.author[0];
-              return {
-                id: author.id[0],
-                name: author.name[0],
-                averageRating: parseFloat(author.average_rating[0] || '0') * 20,
-                ratingsCount: parseInt(author.ratings_count[0] || '0'),
-                textReviewsCount: parseInt(author.text_reviews_count[0] || '0'),
-              };
-            }),
-            numberOfPages: numberOfPages,
-            averageRating: parseFloat(book.average_rating[0] || '0') * 20,
-            ratingsCount: parseInt(book.ratings_count[0] || '0'),
-            textReviewsCount: parseInt(book.text_reviews_count[0]['_'] || '0'),
-            published: published,
+      const bookData = {
+        id: goodreadsId,
+        title: book.title[0],
+        description: book.description[0],
+        url: `https://www.goodreads.com/book/show/${goodreadsId}`,
+        authors: book.authors.map(authorObject => {
+          const author = authorObject.author[0];
+          return {
+            id: author.id[0],
+            name: author.name[0],
+            averageRating: parseFloat(author.average_rating[0] || '0') * 20,
+            ratingsCount: parseInt(author.ratings_count[0] || '0'),
+            textReviewsCount: parseInt(author.text_reviews_count[0] || '0'),
           };
+        }),
+        numberOfPages: numberOfPages,
+        averageRating: parseFloat(book.average_rating[0] || '0') * 20,
+        ratingsCount: parseInt(book.ratings_count[0] || '0'),
+        textReviewsCount: parseInt(book.text_reviews_count[0]['_'] || '0'),
+        published: published,
+      };
 
-          const readStatus = buildReadStatusForBook(
-            review.started_at[0],
-            review.read_at[0]
-          );
+      const readStatus = buildReadStatusForBook(
+        review.started_at[0],
+        review.read_at[0]
+      );
 
-          return { id: goodreadsId, book: bookData, readStatus };
-        });
-
-        const list = data.map(({ id, book, readStatus }) => {
-          return id;
-        });
-        const books = data.reduce(
-          (accumulator, { id, book, readStatus }) => {
-            accumulator[id] = book;
-            return accumulator;
-          },
-          {}
-        );
-
-        const readStatus = data.reduce(
-          (accumulator, { id, book, readStatus }) => {
-            if (readStatus) {
-              accumulator[id] = readStatus;
-            }
-            return accumulator;
-          },
-          {}
-        );
-
-        resolve({ list, books, readStatus });
-      });
+      return { id: goodreadsId, book: bookData, readStatus };
     });
+
+    const list = data.map(({ id, book, readStatus }) => {
+      return id;
+    });
+    const books = data.reduce(
+      (accumulator, { id, book, readStatus }) => {
+        accumulator[id] = book;
+        return accumulator;
+      },
+      {}
+    );
+
+    const readStatus = data.reduce(
+      (accumulator, { id, book, readStatus }) => {
+        if (readStatus) {
+          accumulator[id] = readStatus;
+        }
+        return accumulator;
+      },
+      {}
+    );
+
+    return { list, books, readStatus };
   });
 };
 
