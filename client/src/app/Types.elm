@@ -1,16 +1,18 @@
 module Types exposing (..)
 
 import Table
-import Dict
+import Dict exposing (Dict)
 import Http
+import Date exposing (Date)
 import Navigation
 
 
 type alias Model =
     { apiHost : String
     , goodReadsUserIdInputCurrentValue : String
-    , lists : Dict.Dict String (List String)
-    , books : Dict.Dict String Book
+    , shelves : Dict String (Dict String (List String))
+    , read : Dict String (Dict String ReadStatus)
+    , books : Dict String Book
     , errorMessage : Maybe String
     , buildInfo : BuildInfo
     , tableState : Table.State
@@ -20,7 +22,7 @@ type alias Model =
 type Msg
     = LookupWatchList String
     | UserIdInput String
-    | LoadGoodreadsToReadList String (Result Http.Error (List Book))
+    | LoadGoodreadsToReadList String String (Result Http.Error ( List String, Dict String Book, Dict String ReadStatus ))
     | ClearList String
     | SetTableState Table.State
     | UrlChange Navigation.Location
@@ -30,7 +32,8 @@ emptyModel : Flags -> Model
 emptyModel flags =
     { apiHost = flags.apiHost
     , goodReadsUserIdInputCurrentValue = ""
-    , lists = Dict.empty
+    , shelves = Dict.empty
+    , read = Dict.empty
     , books = Dict.empty
     , errorMessage = Nothing
     , tableState = Table.initialSort "Priority"
@@ -58,6 +61,12 @@ type alias Book =
     , ratingsCount : Int
     , textReviewsCount : Int
     , published : Maybe Int
+    }
+
+
+type alias ReadStatus =
+    { startedReading : Date
+    , finishedReading : Maybe Date
     }
 
 

@@ -1,6 +1,6 @@
 module State exposing (init, update, calculatePriority, calculatePriorityWithWeights, defaultPriorityWeights, calculateAuthorsAverageRating, calculatePopularity, renderPriorityFormula, calculatePassion)
 
-import Dict
+import Dict exposing (Dict)
 import Api
 import Types exposing (..)
 import Utils
@@ -18,10 +18,10 @@ init flags location =
         initialModel =
             emptyModel flags
 
-        initalLists =
-            Dict.fromList (List.map (Utils.lift2 identity (always [])) userIdsFromPath)
+        initalShelves =
+            Dict.fromList (List.map (Utils.lift2 identity (always Dict.empty)) userIdsFromPath)
     in
-        { initialModel | lists = initalLists } ! List.map (Api.getGoodreadsToReadData initialModel.apiHost) userIdsFromPath
+        { initialModel | shelves = initalShelves } ! List.concatMap (Api.fetchUserData initialModel.apiHost) userIdsFromPath
 
 
 parseGoodReadsUserIdFromPath : Navigation.Location -> List String
@@ -38,7 +38,7 @@ parseGoodReadsUserIdFromPath location =
 
 updatedUrl : Model -> String
 updatedUrl model =
-    "?goodReadsUserId=" ++ (String.join "," (Dict.keys model.lists))
+    "?goodReadsUserId=" ++ (String.join "," (Dict.keys model.shelves))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -52,20 +52,22 @@ update msg model =
                 newModel =
                     { model
                         | goodReadsUserIdInputCurrentValue = ""
-                        , lists = Dict.insert goodReadsUserId [] model.lists
+                        , shelves = Dict.insert goodReadsUserId Dict.empty model.shelves
                     }
             in
                 newModel
-                    ! [ Api.getGoodreadsToReadData model.apiHost goodReadsUserId, Navigation.modifyUrl (updatedUrl newModel) ]
+                    ! (Api.fetchUserData model.apiHost goodReadsUserId
+                        ++ [ Navigation.modifyUrl (updatedUrl newModel) ]
+                      )
 
         ClearList goodReadsUserId ->
             let
                 newModel =
-                    { model | lists = Dict.remove goodReadsUserId model.lists }
+                    { model | shelves = Dict.remove goodReadsUserId model.shelves }
             in
                 newModel ! [ Navigation.modifyUrl (updatedUrl newModel) ]
 
-        LoadGoodreadsToReadList goodReadsUserId (Err error) ->
+        LoadGoodreadsToReadList goodReadsUserId shelf (Err error) ->
             let
                 errorMessage =
                     case error of
@@ -86,18 +88,18 @@ update msg model =
             in
                 { model | errorMessage = Just errorMessage } ! []
 
-        LoadGoodreadsToReadList goodReadsUserId (Ok books) ->
+        LoadGoodreadsToReadList goodReadsUserId shelf (Ok ( list, books, readStatuses )) ->
             let
-                listOfIds =
-                    List.map .id books
+                currentShelves =
+                    Maybe.withDefault Dict.empty (Dict.get goodReadsUserId model.shelves)
 
-                newBooks =
-                    (List.map (Utils.lift2 .id identity) books)
-                        |> Dict.fromList
+                newShelves =
+                    Dict.insert shelf list currentShelves
             in
                 { model
-                    | lists = Dict.insert goodReadsUserId listOfIds model.lists
-                    , books = Dict.union newBooks model.books
+                    | shelves = Dict.insert goodReadsUserId newShelves model.shelves
+                    , books = Dict.union books model.books
+                    , read = Dict.insert goodReadsUserId readStatuses model.read
                 }
                     ! []
 

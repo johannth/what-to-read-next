@@ -1,9 +1,11 @@
-module Api exposing (getGoodreadsToReadData)
+module Api exposing (fetchUserData)
 
 import Json.Decode as Decode
+import Dict exposing (Dict)
 import Http
 import Types exposing (..)
 import Utils exposing (map10)
+import Date exposing (Date)
 
 
 apiUrl : String -> String -> String
@@ -11,15 +13,30 @@ apiUrl apiHost path =
     apiHost ++ path
 
 
-getGoodreadsToReadData : String -> String -> Cmd Msg
-getGoodreadsToReadData apiHost userId =
-    Http.send (LoadGoodreadsToReadList userId) <|
-        Http.get (apiUrl apiHost ("/api/goodreads?userId=" ++ userId)) decodeReadingList
+fetchUserData : String -> String -> List (Cmd Msg)
+fetchUserData apiHost userId =
+    [ getGoodreadsToReadData apiHost "to-read" userId
+    , getGoodreadsToReadData apiHost "read" userId
+    ]
 
 
-decodeReadingList : Decode.Decoder (List Book)
+getGoodreadsToReadData : String -> String -> String -> Cmd Msg
+getGoodreadsToReadData apiHost shelf userId =
+    Http.send (LoadGoodreadsToReadList userId shelf) <|
+        Http.get (apiUrl apiHost ("/api/goodreads?userId=" ++ userId ++ "&shelf=" ++ shelf)) decodeReadingList
+
+
+decodeReadingList : Decode.Decoder ( List String, Dict String Book, Dict String ReadStatus )
 decodeReadingList =
-    Decode.at [ "data", "list" ] (Decode.list decodeBook)
+    Decode.map3 (\x y z -> ( x, y, z ))
+        (Decode.at [ "data", "list" ] (Decode.list Decode.string))
+        (Decode.at [ "data", "books" ] decodeBooks)
+        (Decode.at [ "data", "readStatus" ] decodeReadStatuses)
+
+
+decodeBooks : Decode.Decoder (Dict String Book)
+decodeBooks =
+    Decode.dict decodeBook
 
 
 decodeBook : Decode.Decoder Book
@@ -45,3 +62,25 @@ decodeAuthor =
         (Decode.field "averageRating" Decode.float)
         (Decode.field "ratingsCount" Decode.int)
         (Decode.field "textReviewsCount" Decode.int)
+
+
+decodeReadStatuses : Decode.Decoder (Dict String ReadStatus)
+decodeReadStatuses =
+    Decode.dict decodeReadStatus
+
+
+decodeDate : Decode.Decoder (Maybe Date)
+decodeDate =
+    let
+        converter : Maybe String -> Maybe Date
+        converter =
+            Maybe.withDefault "" >> Date.fromString >> Result.toMaybe
+    in
+        Decode.map converter (Decode.nullable Decode.string)
+
+
+decodeReadStatus : Decode.Decoder ReadStatus
+decodeReadStatus =
+    Decode.map2 ReadStatus
+        (Decode.field "startedReading" (Decode.map (Maybe.withDefault (Date.fromTime 0)) decodeDate))
+        (Decode.field "finishedReading" decodeDate)

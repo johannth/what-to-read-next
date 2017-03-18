@@ -13,10 +13,11 @@ import Dict exposing (Dict)
 
 
 rootView : Model -> Html Msg
-rootView { goodReadsUserIdInputCurrentValue, lists, books, errorMessage, tableState, buildInfo } =
+rootView { goodReadsUserIdInputCurrentValue, shelves, books, errorMessage, tableState, buildInfo } =
     let
         list =
-            Dict.values lists
+            Dict.values shelves
+                |> List.map (Dict.get "to-read" >> (Maybe.withDefault []))
                 |> List.map Set.fromList
                 |> List.foldl Set.union Set.empty
                 |> Set.toList
@@ -28,12 +29,12 @@ rootView { goodReadsUserIdInputCurrentValue, lists, books, errorMessage, tableSt
             [ h1 [ id "title" ] [ text "What should I read next?" ]
             , div [ id "body" ]
                 [ userIdTextInput goodReadsUserIdInputCurrentValue
-                , div [ id "users" ] (Dict.keys lists |> List.map userIdView)
+                , div [ id "users" ] (Dict.keys shelves |> List.map userIdView)
                 , div [ id "list" ]
                     [ case list of
                         [] ->
                             text
-                                (if Dict.size lists > 0 then
+                                (if Dict.size shelves > 0 then
                                     "Loading..."
                                  else
                                     ""
