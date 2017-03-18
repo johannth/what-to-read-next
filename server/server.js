@@ -8,6 +8,7 @@ import bluebird from 'bluebird';
 import redis from 'redis';
 import moment from 'moment';
 import { parseString } from 'xml2js';
+import PromiseThrottle from 'promise-throttle';
 bluebird.promisifyAll(redis.RedisClient.prototype);
 bluebird.promisifyAll(redis.Multi.prototype);
 
@@ -62,37 +63,48 @@ const buildReadStatusForBook = (rawStartedReading, rawFinishedReading) => {
   }
 };
 
+const promiseThrottle = new PromiseThrottle({
+  requestsPerSecond: 0.5,
+  promiseImplementation: Promise,
+});
+
 const goodReadsCacheKey = url => `goodreads:${url}`;
 
 const goodreadsApiRequest = (url, expiryInSeconds) => {
+  console.log(url);
   return getFromCache(cache)(goodReadsCacheKey(url)).then(result => {
     if (result) {
       console.log(`Serving ${url} from cache`);
       return result;
     } else {
-      return fetch(url).then(response => response.text()).then(xmlBody => {
-        return new Promise((resolve, reject) => {
-          parseString(xmlBody, (error, result) => {
-            if (error) {
-              reject(error);
-              return;
-            }
-            saveToCache(cache)(
-              goodReadsCacheKey(url),
-              result,
-              expiryInSeconds
-            ).then(() => resolve(result));
+      const startRequest = () => {
+        return fetch(url).then(response => response.text()).then(xmlBody => {
+          return new Promise((resolve, reject) => {
+            parseString(xmlBody, (error, result) => {
+              if (error) {
+                reject(error);
+                return;
+              }
+              saveToCache(cache)(
+                goodReadsCacheKey(url),
+                result,
+                expiryInSeconds
+              ).then(() => resolve(result));
+            });
           });
         });
-      });
+      };
+
+      return promiseThrottle.add(startRequest);
     }
   });
 };
 
-const fetchBooks = (userId, shelf) => {
-  const url = `https://www.goodreads.com/review/list/${userId}.xml?key=${GOODREADS_API_KEY}&v=2&per_page=200&shelf=${shelf}`;
-  console.log(url);
-  return goodreadsApiRequest(url, 60 * 15).then(result => {
+const fetchShelf = (userId, shelf) => {
+  return goodreadsApiRequest(
+    `https://www.goodreads.com/review/list/${userId}.xml?key=${GOODREADS_API_KEY}&v=2&per_page=200&shelf=${shelf}`,
+    60 * 15
+  ).then(result => {
     const data = result.GoodreadsResponse.reviews[0].review.map(review => {
       const book = review.book[0];
       const goodreadsId = book.id[0]['_'];
@@ -104,8 +116,7 @@ const fetchBooks = (userId, shelf) => {
         title: book.title[0],
         description: book.description[0],
         url: `https://www.goodreads.com/book/show/${goodreadsId}`,
-        authors: book.authors.map(authorObject => {
-          const author = authorObject.author[0];
+        authors: book.authors[0].author.map(author => {
           return {
             id: author.id[0],
             name: author.name[0],
@@ -155,7 +166,7 @@ const fetchBooks = (userId, shelf) => {
 };
 
 app.get('/api/goodreads/', (req, res) => {
-  fetchBooks(req.query.userId, req.query.shelf)
+  fetchShelf(req.query.userId, req.query.shelf)
     .then(({ list, books, readStatus }) => {
       return res.json({ data: { list, books, readStatus } });
     })
@@ -163,6 +174,100 @@ app.get('/api/goodreads/', (req, res) => {
       console.error(error);
       return res.json({ data: null });
     });
+});
+
+const fetchBookDetails = bookId => {
+  const requestDetailsPage = bookId =>
+    goodreadsApiRequest(
+      `https://www.goodreads.com/book/show/${bookId}.xml?key=${GOODREADS_API_KEY}`,
+      60 * 60 * 24 * 7
+    );
+
+  return requestDetailsPage(bookId).then(result => {
+    const bestBookId = result.GoodreadsResponse.book[0].work[0].best_book_id[0][
+      '_'
+    ];
+
+    const bestData = bestBookId === bookId
+      ? Promise.resolve(result)
+      : requestDetailsPage(bestBookId);
+    return bestData.then(bestResult => {
+      const book = bestResult.GoodreadsResponse.book[0];
+      const ignoreTags = [
+        'books-i-own',
+        'to-read',
+        'currently-reading',
+        'owned',
+        'favorites',
+      ];
+      const tags = book.popular_shelves[0].shelf
+        .map(s => s['$']['name'])
+        .filter(tag => ignoreTags.indexOf(tag) === -1)
+        .slice(0, 10);
+
+      const published = parseInt(
+        book.work[0].original_publication_year[0]['_']
+      );
+
+      const ratingDistribution = book.work[0].rating_dist[0]
+        .split('|')
+        .map(x => x.split(':'))
+        .map(key_value => {
+          return { key: key_value[0], value: parseInt(key_value[1]) };
+        })
+        .reduce(
+          (accumulator, { key, value }) => {
+            accumulator[key] = value;
+            return accumulator;
+          },
+          {}
+        );
+
+      console.log(book.authors);
+
+      return {
+        id: bookId,
+        title: book.title[0],
+        description: book.description[0],
+        url: `https://www.goodreads.com/book/show/${bookId}`,
+        authors: book.authors[0].author.map(author => {
+          return {
+            id: author.id[0],
+            name: author.name[0],
+            averageRating: parseFloat(author.average_rating[0] || '0') * 20,
+            ratingsCount: parseInt(author.ratings_count[0] || '0'),
+            textReviewsCount: parseInt(author.text_reviews_count[0] || '0'),
+          };
+        }),
+        numberOfPages: parseInt(book.num_pages[0]),
+        averageRating: parseFloat(book.average_rating[0] || '0') * 20,
+        ratingsCount: parseInt(book.ratings_count[0] || '0'),
+        textReviewsCount: parseInt(book.text_reviews_count[0] || '0'),
+        ratingDistribution,
+        published,
+        tags,
+      };
+    });
+  });
+};
+
+app.get('/api/goodreads/books', (req, res) => {
+  const bookIds = req.query.bookIds.split(',').slice(0, 50);
+  Promise.all(
+    bookIds.map(bookId => fetchBookDetails(bookId).catch(error => null))
+  ).then(bookResults => {
+    const books = bookResults.reduce(
+      (accumulator, book) => {
+        if (book) {
+          accumulator[book.id] = book;
+        }
+        return accumulator;
+      },
+      {}
+    );
+
+    res.json({ data: { books } });
+  });
 });
 
 // process.env.PORT lets the port be set by Heroku

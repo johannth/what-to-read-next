@@ -23,7 +23,8 @@ type alias Model =
 type Msg
     = LookupWatchList String
     | UserIdInput String
-    | LoadGoodreadsToReadList String String (Result Http.Error ( List String, Dict String Book, Dict String ReadStatus ))
+    | LoadGoodreadsShelf String String (Result Http.Error ( List String, Dict String Book, Dict String ReadStatus ))
+    | LoadGoodreadsBookDetails (Result Http.Error (Dict String Book))
     | ClearList String
     | SetTableState Table.State
     | UrlChange Navigation.Location

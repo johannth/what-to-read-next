@@ -1,4 +1,4 @@
-module Api exposing (fetchUserData)
+module Api exposing (fetchUserData, getGoodreadsBookDetails)
 
 import Json.Decode as Decode
 import Dict exposing (Dict)
@@ -15,14 +15,20 @@ apiUrl apiHost path =
 
 fetchUserData : String -> String -> List (Cmd Msg)
 fetchUserData apiHost userId =
-    [ getGoodreadsToReadData apiHost "to-read" userId
-    , getGoodreadsToReadData apiHost "read" userId
+    [ getGoodreadsShelfData apiHost "to-read" userId
+    , getGoodreadsShelfData apiHost "read" userId
     ]
 
 
-getGoodreadsToReadData : String -> String -> String -> Cmd Msg
-getGoodreadsToReadData apiHost shelf userId =
-    Http.send (LoadGoodreadsToReadList userId shelf) <|
+getGoodreadsBookDetails : String -> List String -> Cmd Msg
+getGoodreadsBookDetails apiHost bookIds =
+    Http.send LoadGoodreadsBookDetails <|
+        Http.get (apiUrl apiHost ("/api/goodreads/books?bookIds=" ++ (String.join "," bookIds))) (Decode.at [ "data", "books" ] decodeBooks)
+
+
+getGoodreadsShelfData : String -> String -> String -> Cmd Msg
+getGoodreadsShelfData apiHost shelf userId =
+    Http.send (LoadGoodreadsShelf userId shelf) <|
         Http.get (apiUrl apiHost ("/api/goodreads?userId=" ++ userId ++ "&shelf=" ++ shelf)) decodeReadingList
 
 

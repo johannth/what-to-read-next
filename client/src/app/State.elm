@@ -70,7 +70,7 @@ update msg model =
             in
                 newModel ! [ Navigation.modifyUrl (updatedUrl newModel) ]
 
-        LoadGoodreadsToReadList goodReadsUserId shelf (Err error) ->
+        LoadGoodreadsShelf goodReadsUserId shelf (Err error) ->
             let
                 errorMessage =
                     case error of
@@ -91,11 +91,24 @@ update msg model =
             in
                 { model | errorMessage = Just errorMessage } ! []
 
-        LoadGoodreadsToReadList goodReadsUserId shelf (Ok ( list, books, readStatuses )) ->
+        LoadGoodreadsShelf goodReadsUserId shelf (Ok ( list, books, readStatuses )) ->
+            let
+                batchesOfBookIds =
+                    batches 15 (Dict.values books |> List.map .id)
+            in
+                { model
+                    | shelves = Dict.insert shelf list model.shelves
+                    , books = Dict.union books model.books
+                    , read = Dict.union readStatuses model.read
+                }
+                    ! (List.map (Api.getGoodreadsBookDetails model.apiHost) batchesOfBookIds)
+
+        LoadGoodreadsBookDetails (Err error) ->
+            model ! []
+
+        LoadGoodreadsBookDetails (Ok books) ->
             { model
-                | shelves = Dict.insert shelf list model.shelves
-                , books = Dict.union books model.books
-                , read = Dict.union readStatuses model.read
+                | books = Dict.union books model.books
             }
                 ! []
 
@@ -104,6 +117,26 @@ update msg model =
 
         UrlChange newLocation ->
             model ! []
+
+
+batches : Int -> List a -> List (List a)
+batches batchSize list =
+    let
+        batcher : a -> List (List a) -> List (List a)
+        batcher item acc =
+            let
+                accHead =
+                    Maybe.withDefault [] (List.head acc)
+
+                accTail =
+                    Maybe.withDefault [] (List.tail acc)
+            in
+                if List.length accHead < batchSize then
+                    (item :: accHead) :: accTail
+                else
+                    [ item ] :: acc
+    in
+        List.foldl batcher [ [] ] list
 
 
 calculatePriority : Book -> Float

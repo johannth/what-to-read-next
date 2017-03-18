@@ -25,6 +25,7 @@
     "moment": "^2.17.1",
     "newrelic": "^1.37.2",
     "node-fetch": "^1.6.3",
+    "promise-throttle": "^0.3.1",
     "redis": "^2.6.5",
     "xml2js": "^0.4.17"
   }
