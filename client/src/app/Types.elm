@@ -5,6 +5,7 @@ import Dict exposing (Dict)
 import Http
 import Date exposing (Date)
 import Navigation
+import Set exposing (Set)
 
 
 type alias Model =
@@ -15,6 +16,7 @@ type alias Model =
     , read : Dict String ReadStatus
     , books : Dict String Book
     , errorMessage : Maybe String
+    , selectedTags : Set String
     , buildInfo : BuildInfo
     , tableState : Table.State
     }
@@ -28,6 +30,7 @@ type Msg
     | ClearList String
     | SetTableState Table.State
     | UrlChange Navigation.Location
+    | ToggleTagFilter String
 
 
 emptyModel : Flags -> Model
@@ -39,6 +42,7 @@ emptyModel flags =
     , read = Dict.empty
     , books = Dict.empty
     , errorMessage = Nothing
+    , selectedTags = Set.empty
     , tableState = Table.initialSort "Priority"
     , buildInfo = BuildInfo flags.buildVersion flags.buildTime flags.buildTier
     }
@@ -64,6 +68,7 @@ type alias Book =
     , ratingsCount : Int
     , textReviewsCount : Int
     , published : Maybe Int
+    , tags : Set String
     }
 
 

@@ -4,8 +4,9 @@ import Json.Decode as Decode
 import Dict exposing (Dict)
 import Http
 import Types exposing (..)
-import Utils exposing (map10)
+import Utils exposing (map11)
 import Date exposing (Date)
+import Set
 
 
 apiUrl : String -> String -> String
@@ -47,7 +48,7 @@ decodeBooks =
 
 decodeBook : Decode.Decoder Book
 decodeBook =
-    map10 Book
+    map11 Book
         (Decode.field "id" Decode.string)
         (Decode.field "title" Decode.string)
         (Decode.field "description" Decode.string)
@@ -58,6 +59,9 @@ decodeBook =
         (Decode.field "ratingsCount" Decode.int)
         (Decode.field "textReviewsCount" Decode.int)
         (Decode.maybe (Decode.field "published" Decode.int))
+        (Decode.map (Maybe.withDefault Set.empty)
+            (Decode.maybe (Decode.field "tags" (Decode.map Set.fromList (Decode.list Decode.string))))
+        )
 
 
 decodeAuthor : Decode.Decoder Author

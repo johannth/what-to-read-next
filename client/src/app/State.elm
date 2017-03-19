@@ -9,6 +9,7 @@ import Http
 import UrlParser exposing ((<?>))
 import Statistics
 import Utils
+import Set
 
 
 init : Flags -> Navigation.Location -> ( Model, Cmd Msg )
@@ -117,6 +118,14 @@ update msg model =
 
         UrlChange newLocation ->
             model ! []
+
+        ToggleTagFilter tag ->
+            (if Set.member tag model.selectedTags then
+                { model | selectedTags = Set.remove tag model.selectedTags }
+             else
+                { model | selectedTags = Set.insert tag model.selectedTags }
+            )
+                ! []
 
 
 batches : Int -> List a -> List (List a)

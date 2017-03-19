@@ -103,7 +103,7 @@ const goodreadsApiRequest = (url, expiryInSeconds) => {
 const fetchShelf = (userId, shelf) => {
   return goodreadsApiRequest(
     `https://www.goodreads.com/review/list/${userId}.xml?key=${GOODREADS_API_KEY}&v=2&per_page=200&shelf=${shelf}`,
-    60 * 15
+    60 * 5
   ).then(result => {
     const data = result.GoodreadsResponse.reviews[0].review.map(review => {
       const book = review.book[0];
@@ -193,17 +193,43 @@ const fetchBookDetails = bookId => {
       : requestDetailsPage(bestBookId);
     return bestData.then(bestResult => {
       const book = bestResult.GoodreadsResponse.book[0];
+
+      // Not sustainable
       const ignoreTags = [
         'books-i-own',
         'to-read',
         'currently-reading',
         'owned',
         'favorites',
+        'books-i-don-t-own',
+        'audiobook',
+        'audiobooks',
+        'need-to-read',
+        'e-book',
+        'read-in-2011',
+        'read-in-2012',
+        'literature',
+        'middle-grade',
       ];
+
+      const replacements = {
+        nonfiction: 'non-fiction',
+        classics: 'classic',
+        clàssics: 'classic',
+        'graphic-novels': 'graphic-novel',
+        comics: 'graphic-novel', // questionable
+        novels: 'novel',
+      };
+
       const tags = book.popular_shelves[0].shelf
         .map(s => s['$']['name'])
-        .filter(tag => ignoreTags.indexOf(tag) === -1)
-        .slice(0, 10);
+        .filter(tag => {
+          const currentYear = moment().year();
+          return ignoreTags.indexOf(tag) === -1 &&
+            !tag.includes(`${currentYear}`);
+        })
+        .map(tag => replacements[tag] ? replacements[tag] : tag)
+        .slice(0, 3);
 
       const published = parseInt(
         book.work[0].original_publication_year[0]['_']
@@ -222,8 +248,6 @@ const fetchBookDetails = bookId => {
           },
           {}
         );
-
-      console.log(book.authors);
 
       return {
         id: bookId,

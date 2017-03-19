@@ -10,10 +10,24 @@ import Html.Attributes exposing (..)
 import Types exposing (..)
 import Dict exposing (Dict)
 import Round
+import Set exposing (Set)
+
+
+isSubset : Set comparable -> Set comparable -> Bool
+isSubset setA setB =
+    Set.diff setA setB |> Set.isEmpty
+
+
+bookHasTag : Set String -> Book -> Bool
+bookHasTag selectedTags book =
+    if Set.isEmpty selectedTags == True then
+        True
+    else
+        isSubset selectedTags book.tags
 
 
 rootView : Model -> Html Msg
-rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, read, errorMessage, tableState, buildInfo } =
+rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, read, errorMessage, selectedTags, tableState, buildInfo } =
     let
         expectedMinutesPerPageMultiplier =
             State.calculateExpectedMinutesPerPageMultiplier books read
@@ -24,6 +38,12 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
 
         expandedList =
             List.filterMap (\bookId -> Dict.get bookId books) list
+
+        tags =
+            Set.fromList (List.concatMap (.tags >> Set.toList) expandedList)
+
+        filteredList =
+            List.filter (bookHasTag selectedTags) expandedList
     in
         div [ id "content" ]
             [ h1 [ id "title" ] [ text "What should I read next?" ]
@@ -31,6 +51,7 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
                 [ userIdTextInput goodReadsUserIdInputCurrentValue
                 , userIdView goodReadsUserId
                 , readingSpeedView expectedMinutesPerPageMultiplier
+                , div [ id "tags" ] (Set.toList tags |> List.sort |> List.map (tagView selectedTags))
                 , div [ id "list" ]
                     [ case list of
                         [] ->
@@ -44,7 +65,7 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
                                 )
 
                         list ->
-                            Table.view (config expectedMinutesPerPageMultiplier) tableState expandedList
+                            Table.view (config expectedMinutesPerPageMultiplier) tableState filteredList
                     ]
                 ]
             , case errorMessage of
@@ -66,6 +87,7 @@ config expectedMinutesPerPageMultiplier =
         , toMsg = SetTableState
         , columns =
             [ titleColumn
+            , Table.stringColumn "Tags" (.tags >> Set.toList >> List.sort >> (String.join ", "))
             , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
             , Table.intColumn "Average Rating of Authors" (.authors >> State.calculateAuthorsAverageRating)
             , Table.stringColumn "Publication Year" (\book -> Maybe.withDefault "?" (Maybe.map toString book.published))
@@ -203,3 +225,15 @@ readingSpeedView maybeAverageMinutesPerPage =
             _ ->
                 text ""
         ]
+
+
+tagView : Set String -> String -> Html Msg
+tagView selectedTags tag =
+    let
+        isSelected =
+            if Set.isEmpty selectedTags then
+                True
+            else
+                Set.member tag selectedTags
+    in
+        a [ classList [ ( "tag", True ), ( "selected", isSelected ) ], href "#", Html.Events.onClick (ToggleTagFilter tag) ] [ text tag ]

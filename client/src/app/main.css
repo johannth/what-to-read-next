@@ -54,6 +54,25 @@ body {
   background-color: gray;
 }
 
+#readingSpeed {
+  margin-bottom: 10px;
+}
+
+#tags {
+  margin-bottom: 10px;
+}
+
+.tag {
+  color: #000;
+  margin-right: 10px;
+  opacity: 0.3;
+  text-decoration: none;
+}
+
+.selected {
+  opacity: 1;
+}
+
 #list table {
   width: 100%;
 }
