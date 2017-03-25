@@ -7,7 +7,7 @@ import cors from 'cors';
 import bluebird from 'bluebird';
 import redis from 'redis';
 import moment from 'moment';
-import { parseString } from 'xml2js';
+import {parseString} from 'xml2js';
 import PromiseThrottle from 'promise-throttle';
 bluebird.promisifyAll(redis.RedisClient.prototype);
 bluebird.promisifyAll(redis.Multi.prototype);
@@ -16,7 +16,7 @@ const app = express();
 
 const GOODREADS_API_KEY = process.env.GOODREADS_API_KEY;
 
-const cache = redis.createClient({ url: process.env.REDIS_URL });
+const cache = redis.createClient({url: process.env.REDIS_URL});
 
 if (process.env.DISABLE_CACHE) {
   console.log('Cache is disabled');
@@ -32,21 +32,23 @@ const handleErrors = response => {
   return response;
 };
 
-const getFromCache = cache => key => {
-  if (process.env.DISABLE_CACHE) {
-    return Promise.resolve(null);
-  }
-  return cache.getAsync(key).then(result => {
-    if (result) {
-      return JSON.parse(result);
-    } else {
-      return null;
+const getFromCache = cache =>
+  key => {
+    if (process.env.DISABLE_CACHE) {
+      return Promise.resolve(null);
     }
-  });
-};
-const saveToCache = cache => (key, value, expiryInSeconds) => {
-  return cache.setexAsync(key, expiryInSeconds, JSON.stringify(value));
-};
+    return cache.getAsync(key).then(result => {
+      if (result) {
+        return JSON.parse(result);
+      } else {
+        return null;
+      }
+    });
+  };
+const saveToCache = cache =>
+  (key, value, expiryInSeconds) => {
+    return cache.setexAsync(key, expiryInSeconds, JSON.stringify(value));
+  };
 
 const buildReadStatusForBook = (rawStartedReading, rawFinishedReading) => {
   // Sat Feb 04 00:00:00 -0800 2017
@@ -64,7 +66,7 @@ const buildReadStatusForBook = (rawStartedReading, rawFinishedReading) => {
 };
 
 const promiseThrottle = new PromiseThrottle({
-  requestsPerSecond: 0.5,
+  requestsPerSecond: 1.5,
   promiseImplementation: Promise,
 });
 
@@ -88,7 +90,7 @@ const goodreadsApiRequest = (url, expiryInSeconds) => {
               saveToCache(cache)(
                 goodReadsCacheKey(url),
                 result,
-                expiryInSeconds
+                expiryInSeconds,
               ).then(() => resolve(result));
             });
           });
@@ -103,7 +105,7 @@ const goodreadsApiRequest = (url, expiryInSeconds) => {
 const fetchShelf = (userId, shelf) => {
   return goodreadsApiRequest(
     `https://www.goodreads.com/review/list/${userId}.xml?key=${GOODREADS_API_KEY}&v=2&per_page=200&shelf=${shelf}`,
-    60 * 5
+    60 * 5,
   ).then(result => {
     const data = result.GoodreadsResponse.reviews[0].review.map(review => {
       const book = review.book[0];
@@ -134,45 +136,45 @@ const fetchShelf = (userId, shelf) => {
 
       const readStatus = buildReadStatusForBook(
         review.started_at[0],
-        review.read_at[0]
+        review.read_at[0],
       );
 
-      return { id: goodreadsId, book: bookData, readStatus };
+      return {id: goodreadsId, book: bookData, readStatus};
     });
 
-    const list = data.map(({ id, book, readStatus }) => {
+    const list = data.map(({id, book, readStatus}) => {
       return id;
     });
     const books = data.reduce(
-      (accumulator, { id, book, readStatus }) => {
+      (accumulator, {id, book, readStatus}) => {
         accumulator[id] = book;
         return accumulator;
       },
-      {}
+      {},
     );
 
     const readStatus = data.reduce(
-      (accumulator, { id, book, readStatus }) => {
+      (accumulator, {id, book, readStatus}) => {
         if (readStatus) {
           accumulator[id] = readStatus;
         }
         return accumulator;
       },
-      {}
+      {},
     );
 
-    return { list, books, readStatus };
+    return {list, books, readStatus};
   });
 };
 
 app.get('/api/goodreads/', (req, res) => {
   fetchShelf(req.query.userId, req.query.shelf)
-    .then(({ list, books, readStatus }) => {
-      return res.json({ data: { list, books, readStatus } });
+    .then(({list, books, readStatus}) => {
+      return res.json({data: {list, books, readStatus}});
     })
     .catch(error => {
       console.error(error);
-      return res.json({ data: null });
+      return res.json({data: null});
     });
 });
 
@@ -180,7 +182,7 @@ const fetchBookDetails = bookId => {
   const requestDetailsPage = bookId =>
     goodreadsApiRequest(
       `https://www.goodreads.com/book/show/${bookId}.xml?key=${GOODREADS_API_KEY}`,
-      60 * 60 * 24 * 7
+      60 * 60 * 24 * 7,
     );
 
   return requestDetailsPage(bookId).then(result => {
@@ -232,21 +234,21 @@ const fetchBookDetails = bookId => {
         .slice(0, 3);
 
       const published = parseInt(
-        book.work[0].original_publication_year[0]['_']
+        book.work[0].original_publication_year[0]['_'],
       );
 
       const ratingDistribution = book.work[0].rating_dist[0]
         .split('|')
         .map(x => x.split(':'))
         .map(key_value => {
-          return { key: key_value[0], value: parseInt(key_value[1]) };
+          return {key: key_value[0], value: parseInt(key_value[1])};
         })
         .reduce(
-          (accumulator, { key, value }) => {
+          (accumulator, {key, value}) => {
             accumulator[key] = value;
             return accumulator;
           },
-          {}
+          {},
         );
 
       return {
@@ -278,7 +280,7 @@ const fetchBookDetails = bookId => {
 app.get('/api/goodreads/books', (req, res) => {
   const bookIds = req.query.bookIds.split(',').slice(0, 50);
   Promise.all(
-    bookIds.map(bookId => fetchBookDetails(bookId).catch(error => null))
+    bookIds.map(bookId => fetchBookDetails(bookId).catch(error => null)),
   ).then(bookResults => {
     const books = bookResults.reduce(
       (accumulator, book) => {
@@ -287,10 +289,10 @@ app.get('/api/goodreads/books', (req, res) => {
         }
         return accumulator;
       },
-      {}
+      {},
     );
 
-    res.json({ data: { books } });
+    res.json({data: {books}});
   });
 });
 
