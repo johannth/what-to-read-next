@@ -10,6 +10,8 @@ import UrlParser exposing ((<?>))
 import Statistics
 import Utils
 import Set
+import Task
+import Time
 
 
 init : Flags -> Navigation.Location -> ( Model, Cmd Msg )
@@ -20,8 +22,14 @@ init flags location =
 
         initialModel =
             emptyModel flags
+
+        initialCommands =
+            [ Task.perform ReceiveDate Date.now ]
+                ++ Maybe.withDefault
+                    []
+                    (Maybe.map (Api.fetchUserData initialModel.apiHost) userIdFromPath)
     in
-        { initialModel | goodReadsUserId = userIdFromPath } ! Maybe.withDefault [] (Maybe.map (Api.fetchUserData initialModel.apiHost) userIdFromPath)
+        { initialModel | goodReadsUserId = userIdFromPath } ! initialCommands
 
 
 parseGoodReadsUserIdFromPath : Navigation.Location -> Maybe String
@@ -126,6 +134,9 @@ update msg model =
                 { model | selectedTags = Set.insert tag model.selectedTags }
             )
                 ! []
+
+        ReceiveDate date ->
+            { model | today = Just date } ! []
 
 
 batches : Int -> List a -> List (List a)
@@ -284,11 +295,25 @@ priorityWeightsToList weights =
     [ weights.rating, weights.authors, weights.secret, weights.passion, weights.length ]
 
 
-calculateExpectedMinutesPerPageMultiplier : Dict String Book -> Dict String ReadStatus -> Maybe Float
-calculateExpectedMinutesPerPageMultiplier books readStatues =
+calculateExpectedMinutesPerPageMultiplier : Dict String Book -> Dict String ReadStatus -> Date -> Maybe Float
+calculateExpectedMinutesPerPageMultiplier books readStatues today =
     let
+        lastSixMonths =
+            readStatues
+                |> Dict.filter
+                    (\bookId readStatus ->
+                        let
+                            interval =
+                                (Date.toTime today) - (Date.toTime readStatus.startedReading)
+
+                            sixMonthsInMilliseconds =
+                                6 * 30 * 24 * Time.hour
+                        in
+                            interval <= sixMonthsInMilliseconds
+                    )
+
         readStatuesAndBooks =
-            Utils.leftJoin readStatues books
+            Utils.leftJoin lastSixMonths books
 
         averageMinutesPerPagePerBook =
             Dict.values readStatuesAndBooks

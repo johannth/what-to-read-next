@@ -27,10 +27,10 @@ bookHasTag selectedTags book =
 
 
 rootView : Model -> Html Msg
-rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, read, errorMessage, selectedTags, tableState, buildInfo } =
+rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, read, errorMessage, selectedTags, tableState, today, buildInfo } =
     let
         expectedMinutesPerPageMultiplier =
-            State.calculateExpectedMinutesPerPageMultiplier books read
+            today |> Maybe.andThen (State.calculateExpectedMinutesPerPageMultiplier books read)
 
         list =
             (Dict.get "to-read" shelves)

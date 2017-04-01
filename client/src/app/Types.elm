@@ -10,6 +10,7 @@ import Set exposing (Set)
 
 type alias Model =
     { apiHost : String
+    , today : Maybe Date
     , goodReadsUserIdInputCurrentValue : String
     , goodReadsUserId : Maybe String
     , shelves : Dict String (List String)
@@ -31,11 +32,13 @@ type Msg
     | SetTableState Table.State
     | UrlChange Navigation.Location
     | ToggleTagFilter String
+    | ReceiveDate Date
 
 
 emptyModel : Flags -> Model
 emptyModel flags =
     { apiHost = flags.apiHost
+    , today = Nothing
     , goodReadsUserIdInputCurrentValue = ""
     , goodReadsUserId = Nothing
     , shelves = Dict.empty
