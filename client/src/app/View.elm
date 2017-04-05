@@ -94,7 +94,7 @@ config expectedMinutesPerPageMultiplier =
             , Table.intColumn "Average Rating" (.averageRating >> round)
             , Table.intColumn "# of Ratings" .ratingsCount
             , Table.intColumn "# of Text Reviews" .textReviewsCount
-            , Table.intColumn "Popularity" State.calculatePopularity
+            , Table.intColumn "Popularity" (.ratingsCount >> State.calculatePopularity)
             , Table.intColumn "Passion" State.calculatePassion
             , Table.stringColumn "Number of Pages" (\book -> Maybe.withDefault "?" (Maybe.map toString book.numberOfPages))
             , readingTimeColumn expectedMinutesPerPageMultiplier

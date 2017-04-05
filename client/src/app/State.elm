@@ -156,7 +156,7 @@ calculatePriorityValues book =
             toFloat (calculateBookLengthRating book.numberOfPages)
 
         popularity =
-            toFloat (calculatePopularity book)
+            toFloat (calculatePopularity book.ratingsCount)
 
         normalizedAverageRating =
             book.averageRating * (popularity / 100)
@@ -224,19 +224,19 @@ calculateAuthorsAverageRating authors =
         round averageRating
 
 
-calculatePopularity : Book -> Int
-calculatePopularity book =
+calculatePopularity : Int -> Int
+calculatePopularity ratingsCount =
     let
         averageRatingsCount =
-            5000
+            15000
 
         ratingForAverage =
-            0.6
+            0.5
 
         f =
             Utils.increasingFunction averageRatingsCount ratingForAverage
     in
-        round (f (toFloat book.ratingsCount) * 100)
+        round (f (toFloat ratingsCount) * 100)
 
 
 

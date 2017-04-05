@@ -43,4 +43,31 @@ all =
                         63
                         (State.calculateBookLengthRating Nothing)
             ]
+        , describe "calculatePopularity"
+            [ test "should return 100 for very popular books" <|
+                \() ->
+                    Expect.equal
+                        100
+                        (State.calculatePopularity 3000000)
+            , test "should return high rating for fairly popular books" <|
+                \() ->
+                    Expect.equal
+                        91
+                        (State.calculatePopularity 150000)
+            , test "should return medium rating for average books" <|
+                \() ->
+                    Expect.equal
+                        50
+                        (State.calculatePopularity 15000)
+            , test "should return low for seldomly rated books" <|
+                \() ->
+                    Expect.equal
+                        25
+                        (State.calculatePopularity 5000)
+            , test "should return 0 for never rated books" <|
+                \() ->
+                    Expect.equal
+                        0
+                        (State.calculatePopularity 0)
+            ]
         ]
