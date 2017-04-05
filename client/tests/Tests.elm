@@ -11,7 +11,15 @@ import Types exposing (..)
 all : Test
 all =
     describe "Calculate Priority Test Suite"
-        [ describe "calculateBookLengthRating"
+        [ describe "defaultPriorityWeights"
+            [ test "should sum to 1" <|
+                \() ->
+                    Expect.lessThan 0.0001
+                        (abs
+                            (1.0 - (List.sum (State.priorityWeightsToList State.defaultPriorityWeights)))
+                        )
+            ]
+        , describe "calculateBookLengthRating"
             [ test "should return 100 for 0 pages" <|
                 \() ->
                     Expect.equal

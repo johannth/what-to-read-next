@@ -152,23 +152,32 @@ calculatePriorityWithWeights weights book =
 calculatePriorityValues : Book -> List Float
 calculatePriorityValues book =
     let
-        normalizedBookLength =
-            toFloat (calculateBookLengthRating book.numberOfPages)
+        bookLengthRating =
+            (calculateBookLengthRating book.numberOfPages)
 
-        popularity =
-            toFloat (calculatePopularity book.ratingsCount)
+        popularityRating =
+            (calculatePopularity book.ratingsCount)
 
-        normalizedAverageRating =
-            book.averageRating * (popularity / 100)
+        secretRating =
+            (100 - popularityRating)
+
+        passionRating =
+            calculatePassion book
+
+        scaledBookRating =
+            if book.ratingsCount > 100 then
+                book.averageRating
+            else
+                book.averageRating * (toFloat popularityRating / 100)
 
         authorsAverageRating =
             calculateAuthorsAverageRating book.authors
     in
-        [ normalizedAverageRating
+        [ scaledBookRating
         , toFloat authorsAverageRating
-        , 100 - popularity
-        , toFloat (calculatePassion book)
-        , normalizedBookLength
+        , toFloat secretRating
+        , toFloat passionRating
+        , toFloat bookLengthRating
         ]
 
 
@@ -250,8 +259,8 @@ calculatePassion book =
 
 defaultPriorityWeights : PriorityWeights
 defaultPriorityWeights =
-    { rating = 0.35
-    , authors = 0.2
+    { rating = 0.4
+    , authors = 0.15
     , secret = 0.2
     , passion = 0.05
     , length = 0.2
