@@ -103,7 +103,7 @@ update msg model =
         LoadGoodreadsShelf goodReadsUserId shelf (Ok ( list, books, readStatuses )) ->
             let
                 batchesOfBookIds =
-                    batches 15 (Dict.values books |> List.map .id)
+                    Utils.batches 15 (Dict.values books |> List.map .id)
             in
                 { model
                     | shelves = Dict.insert shelf list model.shelves
@@ -139,26 +139,6 @@ update msg model =
             { model | today = Just date } ! []
 
 
-batches : Int -> List a -> List (List a)
-batches batchSize list =
-    let
-        batcher : a -> List (List a) -> List (List a)
-        batcher item acc =
-            let
-                accHead =
-                    Maybe.withDefault [] (List.head acc)
-
-                accTail =
-                    Maybe.withDefault [] (List.tail acc)
-            in
-                if List.length accHead < batchSize then
-                    (item :: accHead) :: accTail
-                else
-                    [ item ] :: acc
-    in
-        List.foldl batcher [ [] ] list
-
-
 calculatePriority : Book -> Float
 calculatePriority =
     calculatePriorityWithWeights defaultPriorityWeights
@@ -166,7 +146,7 @@ calculatePriority =
 
 calculatePriorityWithWeights : PriorityWeights -> Book -> Float
 calculatePriorityWithWeights weights book =
-    interpolation (priorityWeightsToList weights) (calculatePriorityValues book)
+    Utils.interpolation (priorityWeightsToList weights) (calculatePriorityValues book)
 
 
 calculatePriorityValues : Book -> List Float
@@ -215,12 +195,6 @@ optimalBookLengthInPages =
     300
 
 
-interpolation : List Float -> List Float -> Float
-interpolation weights values =
-    List.map2 (*) weights values
-        |> List.sum
-
-
 calculateAuthorsAverageRating : List Author -> Int
 calculateAuthorsAverageRating authors =
     let
@@ -228,18 +202,9 @@ calculateAuthorsAverageRating authors =
             List.length authors
 
         averageRating =
-            interpolation (List.repeat authorsCount (1 / (toFloat authorsCount))) (List.map .averageRating authors)
+            Utils.interpolation (List.repeat authorsCount (1 / (toFloat authorsCount))) (List.map .averageRating authors)
     in
         round averageRating
-
-
-increasingFunction : Float -> Float -> Float -> Float
-increasingFunction averageX averageY x =
-    let
-        a =
-            1 / averageX * (1 / (1 - averageY) - 1)
-    in
-        1 - 1 / (a * x + 1)
 
 
 calculatePopularity : Book -> Int
@@ -252,7 +217,7 @@ calculatePopularity book =
             0.6
 
         f =
-            increasingFunction averageRatingsCount ratingForAverage
+            Utils.increasingFunction averageRatingsCount ratingForAverage
     in
         round (f (toFloat book.ratingsCount) * 100)
 

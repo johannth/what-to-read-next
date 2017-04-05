@@ -24,6 +24,41 @@ leftJoin dictA dictB =
         |> Dict.fromList
 
 
+interpolation : List Float -> List Float -> Float
+interpolation weights values =
+    List.map2 (*) weights values
+        |> List.sum
+
+
+batches : Int -> List a -> List (List a)
+batches batchSize list =
+    let
+        batcher : a -> List (List a) -> List (List a)
+        batcher item acc =
+            let
+                accHead =
+                    Maybe.withDefault [] (List.head acc)
+
+                accTail =
+                    Maybe.withDefault [] (List.tail acc)
+            in
+                if List.length accHead < batchSize then
+                    (item :: accHead) :: accTail
+                else
+                    [ item ] :: acc
+    in
+        List.foldl batcher [ [] ] list
+
+
+increasingFunction : Float -> Float -> Float -> Float
+increasingFunction averageX averageY x =
+    let
+        a =
+            1 / averageX * (1 / (1 - averageY) - 1)
+    in
+        1 - 1 / (a * x + 1)
+
+
 maybeHasValue : Maybe a -> Bool
 maybeHasValue maybeValue =
     case maybeValue of
