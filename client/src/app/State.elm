@@ -153,7 +153,7 @@ calculatePriorityValues : Book -> List Float
 calculatePriorityValues book =
     let
         normalizedBookLength =
-            normalizeBookLength (Maybe.withDefault optimalBookLengthInPages (Maybe.map toFloat book.numberOfPages))
+            calculateBookLengthRating book.numberOfPages
 
         popularity =
             toFloat (calculatePopularity book)
@@ -172,6 +172,28 @@ calculatePriorityValues book =
         ]
 
 
+calculateBookLengthRating : Maybe Int -> Float
+calculateBookLengthRating maybeNumberOfPages =
+    let
+        optimalBookLengthInPages : Float
+        optimalBookLengthInPages =
+            300
+
+        numberOfPages =
+            Maybe.withDefault optimalBookLengthInPages (Maybe.map toFloat maybeNumberOfPages)
+    in
+        normalizeBookLengthWithParameters optimalBookLengthInPages 0.75 numberOfPages
+
+
+normalizeBookLengthWithParameters : Float -> Float -> Float -> Float
+normalizeBookLengthWithParameters optimalBookLengthInPages optimalBookLengthScore bookLengthInPages =
+    let
+        k =
+            (optimalBookLengthInPages ^ 2 * optimalBookLengthScore) / (1 - optimalBookLengthScore)
+    in
+        k / (bookLengthInPages ^ 2 + k) * 100
+
+
 renderPriorityFormula : Book -> String
 renderPriorityFormula book =
     let
@@ -188,11 +210,6 @@ renderPriorityFormula book =
             List.map2 (\x y -> x ++ " * " ++ y) weightsAsStrings valuesAsString |> String.join " + "
     in
         formula ++ " = " ++ (toString priority)
-
-
-optimalBookLengthInPages : Float
-optimalBookLengthInPages =
-    300
 
 
 calculateAuthorsAverageRating : List Author -> Int
@@ -229,20 +246,6 @@ calculatePopularity book =
 calculatePassion : Book -> Int
 calculatePassion book =
     round (((toFloat book.textReviewsCount) / (toFloat book.ratingsCount)) * 100)
-
-
-normalizeBookLength : Float -> Float
-normalizeBookLength =
-    normalizeBookLengthWithParameters optimalBookLengthInPages 0.5
-
-
-normalizeBookLengthWithParameters : Float -> Float -> Float -> Float
-normalizeBookLengthWithParameters optimalBookLengthInPages optimalBookLengthScore bookLengthInPages =
-    let
-        k =
-            (optimalBookLengthInPages ^ 2 * optimalBookLengthScore) / (1 - optimalBookLengthScore)
-    in
-        k / (bookLengthInPages ^ 2 + k) * 100
 
 
 defaultPriorityWeights : PriorityWeights
