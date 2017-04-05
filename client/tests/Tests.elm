@@ -21,7 +21,7 @@ all =
                 \() ->
                     Expect.equal
                         96
-                        (round (State.calculateBookLengthRating (Just 100)))
+                        (State.calculateBookLengthRating (Just 100))
             , test "should return 75 for 300 pages" <|
                 \() ->
                     Expect.equal
@@ -31,11 +31,16 @@ all =
                 \() ->
                     Expect.equal
                         43
-                        (round (State.calculateBookLengthRating (Just 600)))
+                        (State.calculateBookLengthRating (Just 600))
             , test "should return low for 1000 pages" <|
                 \() ->
                     Expect.equal
                         21
-                        (round (State.calculateBookLengthRating (Just 1000)))
+                        (State.calculateBookLengthRating (Just 1000))
+            , test "should return something for missing pages" <|
+                \() ->
+                    Expect.equal
+                        63
+                        (State.calculateBookLengthRating Nothing)
             ]
         ]

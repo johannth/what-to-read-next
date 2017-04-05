@@ -153,7 +153,7 @@ calculatePriorityValues : Book -> List Float
 calculatePriorityValues book =
     let
         normalizedBookLength =
-            calculateBookLengthRating book.numberOfPages
+            toFloat (calculateBookLengthRating book.numberOfPages)
 
         popularity =
             toFloat (calculatePopularity book)
@@ -172,7 +172,7 @@ calculatePriorityValues book =
         ]
 
 
-calculateBookLengthRating : Maybe Int -> Float
+calculateBookLengthRating : Maybe Int -> Int
 calculateBookLengthRating maybeNumberOfPages =
     let
         optimalBookLengthInPages : Float
@@ -180,9 +180,9 @@ calculateBookLengthRating maybeNumberOfPages =
             300
 
         numberOfPages =
-            Maybe.withDefault optimalBookLengthInPages (Maybe.map toFloat maybeNumberOfPages)
+            Maybe.withDefault 400 (Maybe.map toFloat maybeNumberOfPages)
     in
-        normalizeBookLengthWithParameters optimalBookLengthInPages 0.75 numberOfPages
+        round (normalizeBookLengthWithParameters optimalBookLengthInPages 0.75 numberOfPages)
 
 
 normalizeBookLengthWithParameters : Float -> Float -> Float -> Float
