@@ -1,16 +1,15 @@
 module View exposing (rootView)
 
-import Table
-import Dict
-import State
-import Json.Decode as Decode
-import Html.Events
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Types exposing (..)
-import Dict exposing (Dict)
+import Html.Events
+import Json.Decode as Decode
 import Round
 import Set exposing (Set)
+import State
+import Table
+import Types exposing (..)
 
 
 isSubset : Set comparable -> Set comparable -> Bool
@@ -33,7 +32,7 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
             today |> Maybe.andThen (State.calculateExpectedMinutesPerPageMultiplier books read)
 
         list =
-            (Dict.get "to-read" shelves)
+            Dict.get "to-read" shelves
                 |> Maybe.withDefault []
 
         expandedList =
@@ -45,39 +44,38 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
         filteredList =
             List.filter (bookHasTag selectedTags) expandedList
     in
-        div [ id "content" ]
-            [ h1 [ id "title" ] [ text "What should I read next?" ]
-            , div [ id "body" ]
-                [ userIdTextInput goodReadsUserIdInputCurrentValue
-                , userIdView goodReadsUserId
-                , readingSpeedView expectedMinutesPerPageMultiplier
-                , div [ id "tags" ] (Set.toList tags |> List.sort |> List.map (tagView selectedTags))
-                , div [ id "list" ]
-                    [ case list of
-                        [] ->
-                            text
-                                (case goodReadsUserId of
-                                    Just _ ->
-                                        "Loading..."
+    div [ id "content" ]
+        [ h1 [ id "title" ] [ text "What should I read next?" ]
+        , div [ id "body" ]
+            [ userIdTextInput goodReadsUserIdInputCurrentValue
+            , userIdView goodReadsUserId
+            , readingSpeedView expectedMinutesPerPageMultiplier
+            , div [ id "list" ]
+                [ case list of
+                    [] ->
+                        text
+                            (case goodReadsUserId of
+                                Just _ ->
+                                    "Loading..."
 
-                                    _ ->
-                                        ""
-                                )
+                                _ ->
+                                    ""
+                            )
 
-                        list ->
-                            Table.view (config expectedMinutesPerPageMultiplier) tableState filteredList
-                    ]
-                ]
-            , case errorMessage of
-                Just message ->
-                    div [ id "error" ] [ text message ]
-
-                _ ->
-                    div [ id "error" ] []
-            , div [ id "footer" ]
-                [ buildInfoView buildInfo
+                    list ->
+                        Table.view (config expectedMinutesPerPageMultiplier) tableState filteredList
                 ]
             ]
+        , case errorMessage of
+            Just message ->
+                div [ id "error" ] [ text message ]
+
+            _ ->
+                div [ id "error" ] []
+        , div [ id "footer" ]
+            [ buildInfoView buildInfo
+            ]
+        ]
 
 
 config : Maybe Float -> Table.Config Book Msg
@@ -87,7 +85,7 @@ config expectedMinutesPerPageMultiplier =
         , toMsg = SetTableState
         , columns =
             [ titleColumn
-            , Table.stringColumn "Tags" (.tags >> Set.toList >> List.sort >> (String.join ", "))
+            , Table.stringColumn "Tags" (.tags >> Set.toList >> List.sort >> String.join ", ")
             , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
             , Table.intColumn "Average Rating of Authors" (.authors >> State.calculateAuthorsAverageRating)
             , Table.stringColumn "Publication Year" (\book -> Maybe.withDefault "?" (Maybe.map toString book.published))
@@ -105,7 +103,7 @@ config expectedMinutesPerPageMultiplier =
 
 buildInfoView : BuildInfo -> Html Msg
 buildInfoView buildInfo =
-    text ("Version: " ++ buildInfo.time ++ " " ++ (String.slice 0 8 buildInfo.version) ++ "-" ++ buildInfo.tier)
+    text ("Version: " ++ buildInfo.time ++ " " ++ String.slice 0 8 buildInfo.version ++ "-" ++ buildInfo.tier)
 
 
 titleColumn : Table.Column Book Msg
@@ -146,14 +144,14 @@ readingTimeColumn expectedMinutesPerPageMultiplier =
                     _ ->
                         "?"
     in
-        Table.stringColumn "Expected Reading Time" readingTime
+    Table.stringColumn "Expected Reading Time" readingTime
 
 
 priorityColumn : Table.Column Book Msg
 priorityColumn =
     Table.veryCustomColumn
         { name = "Priority"
-        , viewData = \book -> cellWithToolTip (State.renderPriorityFormula book) ((State.calculatePriority book) |> round |> toString)
+        , viewData = \book -> cellWithToolTip (State.renderPriorityFormula book) (State.calculatePriority book |> round |> toString)
         , sorter = Table.decreasingOrIncreasingBy State.calculatePriority
         }
 
@@ -188,9 +186,9 @@ userIdTextInput currentValue =
         properties =
             [ placeholder "Enter GoodReads userId", onEnter LookupWatchList, Html.Events.onInput UserIdInput, value currentValue ]
     in
-        div [ id "user-id-input" ]
-            [ input properties []
-            ]
+    div [ id "user-id-input" ]
+        [ input properties []
+        ]
 
 
 onEnter : (String -> Msg) -> Attribute Msg
@@ -212,7 +210,7 @@ onEnter msg =
                 decodeEnter
                 Html.Events.targetValue
     in
-        Html.Events.on "keydown" decodeEnterWithValue
+    Html.Events.on "keydown" decodeEnterWithValue
 
 
 readingSpeedView : Maybe Float -> Html Msg
@@ -220,7 +218,7 @@ readingSpeedView maybeAverageMinutesPerPage =
     div [ id "readingSpeed" ]
         [ case maybeAverageMinutesPerPage of
             Just averageMinutesPerPage ->
-                text ("It takes you " ++ (prettyPrintReadingTime (averageMinutesPerPage * 100)) ++ " to read 100 pages based on your reading history")
+                text ("It takes you " ++ prettyPrintReadingTime (averageMinutesPerPage * 100) ++ " to read 100 pages based on your reading history")
 
             _ ->
                 text ""
@@ -236,4 +234,4 @@ tagView selectedTags tag =
             else
                 Set.member tag selectedTags
     in
-        a [ classList [ ( "tag", True ), ( "selected", isSelected ) ], href "#", Html.Events.onClick (ToggleTagFilter tag) ] [ text tag ]
+    a [ classList [ ( "tag", True ), ( "selected", isSelected ) ], href "#", Html.Events.onClick (ToggleTagFilter tag) ] [ text tag ]
