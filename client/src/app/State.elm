@@ -265,8 +265,8 @@ calculatePassion book =
 defaultPriorityWeights : PriorityWeights
 defaultPriorityWeights =
     { rating = 0.4
-    , authors = 0.1
-    , secret = 0.2
+    , authors = 0.05
+    , secret = 0.25
     , passion = 0.05
     , length = 0.25
     }
