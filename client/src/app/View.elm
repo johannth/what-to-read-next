@@ -49,6 +49,7 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
         , div [ id "body" ]
             [ userIdTextInput goodReadsUserIdInputCurrentValue
             , userIdView goodReadsUserId
+            , listCountView expandedList
             , readingSpeedView expectedMinutesPerPageMultiplier
             , div [ id "list" ]
                 [ case list of
@@ -223,6 +224,18 @@ readingSpeedView maybeAverageMinutesPerPage =
             _ ->
                 text ""
         ]
+
+
+listCountView : List Book -> Html Msg
+listCountView list =
+    div [ id "listCount" ]
+        (case List.length list of
+            1 ->
+                [ text "There is only one book on the reading list." ]
+
+            numberOfBooks ->
+                [ text ("There are " ++ toString numberOfBooks ++ " books on the reading list.") ]
+        )
 
 
 tagView : Set String -> String -> Html Msg
