@@ -1,17 +1,17 @@
 module State exposing (..)
 
-import Dict exposing (Dict)
-import Date exposing (Date)
 import Api
-import Types exposing (..)
-import Navigation
+import Date exposing (Date)
+import Dict exposing (Dict)
 import Http
-import UrlParser exposing ((<?>))
-import Statistics
-import Utils
+import Navigation
 import Set
+import Statistics
 import Task
 import Time
+import Types exposing (..)
+import UrlParser exposing ((<?>))
+import Utils
 
 
 init : Flags -> Navigation.Location -> ( Model, Cmd Msg )
@@ -29,7 +29,7 @@ init flags location =
                     []
                     (Maybe.map (Api.fetchUserData initialModel.apiHost) userIdFromPath)
     in
-        { initialModel | goodReadsUserId = userIdFromPath } ! initialCommands
+    { initialModel | goodReadsUserId = userIdFromPath } ! initialCommands
 
 
 parseGoodReadsUserIdFromPath : Navigation.Location -> Maybe String
@@ -38,8 +38,8 @@ parseGoodReadsUserIdFromPath location =
         pathParser =
             UrlParser.oneOf [ UrlParser.s "", UrlParser.s "what-to-read-next" ]
     in
-        UrlParser.parsePath (pathParser <?> UrlParser.stringParam "goodReadsUserId") location
-            |> Maybe.andThen identity
+    UrlParser.parsePath (pathParser <?> UrlParser.stringParam "goodReadsUserId") location
+        |> Maybe.andThen identity
 
 
 updatedUrl : Model -> String
@@ -67,24 +67,24 @@ update msg model =
                         , shelves = Dict.empty
                     }
             in
-                newModel
-                    ! (Api.fetchUserData model.apiHost goodReadsUserId
-                        ++ [ Navigation.modifyUrl (updatedUrl newModel) ]
-                      )
+            newModel
+                ! (Api.fetchUserData model.apiHost goodReadsUserId
+                    ++ [ Navigation.modifyUrl (updatedUrl newModel) ]
+                  )
 
         ClearList goodReadsUserId ->
             let
                 newModel =
                     { model | goodReadsUserId = Nothing, shelves = Dict.empty, read = Dict.empty }
             in
-                newModel ! [ Navigation.modifyUrl (updatedUrl newModel) ]
+            newModel ! [ Navigation.modifyUrl (updatedUrl newModel) ]
 
         LoadGoodreadsShelf goodReadsUserId shelf (Err error) ->
             let
                 errorMessage =
                     case error of
                         Http.BadUrl url ->
-                            ("Bad url" ++ url)
+                            "Bad url" ++ url
 
                         Http.Timeout ->
                             "Timeout"
@@ -98,19 +98,19 @@ update msg model =
                         Http.BadPayload desc response ->
                             desc
             in
-                { model | errorMessage = Just errorMessage } ! []
+            { model | errorMessage = Just errorMessage } ! []
 
         LoadGoodreadsShelf goodReadsUserId shelf (Ok ( list, books, readStatuses )) ->
             let
                 batchesOfBookIds =
                     Utils.batches 15 (Dict.values books |> List.map .id)
             in
-                { model
-                    | shelves = Dict.insert shelf list model.shelves
-                    , books = Dict.union books model.books
-                    , read = Dict.union readStatuses model.read
-                }
-                    ! (List.map (Api.getGoodreadsBookDetails model.apiHost) batchesOfBookIds)
+            { model
+                | shelves = Dict.insert shelf list model.shelves
+                , books = Dict.union books model.books
+                , read = Dict.union readStatuses model.read
+            }
+                ! List.map (Api.getGoodreadsBookDetails model.apiHost) batchesOfBookIds
 
         LoadGoodreadsBookDetails (Err error) ->
             model ! []
@@ -153,13 +153,13 @@ calculatePriorityValues : Book -> List Float
 calculatePriorityValues book =
     let
         bookLengthRating =
-            (calculateBookLengthRating book.numberOfPages)
+            calculateBookLengthRating book.numberOfPages
 
         popularityRating =
-            (calculatePopularity book.ratingsCount)
+            calculatePopularity book.ratingsCount
 
         secretRating =
-            (100 - popularityRating)
+            100 - popularityRating
 
         passionRating =
             calculatePassion book
@@ -173,12 +173,12 @@ calculatePriorityValues book =
         authorsAverageRating =
             calculateAuthorsAverageRating book.authors
     in
-        [ scaledBookRating
-        , toFloat authorsAverageRating
-        , toFloat secretRating
-        , toFloat passionRating
-        , toFloat bookLengthRating
-        ]
+    [ scaledBookRating
+    , toFloat authorsAverageRating
+    , toFloat secretRating
+    , toFloat passionRating
+    , toFloat bookLengthRating
+    ]
 
 
 calculateBookLengthRating : Maybe Int -> Int
@@ -191,7 +191,7 @@ calculateBookLengthRating maybeNumberOfPages =
         numberOfPages =
             Maybe.withDefault 400 (Maybe.map toFloat maybeNumberOfPages)
     in
-        round (normalizeBookLengthWithParameters optimalBookLengthInPages 0.75 numberOfPages)
+    round (normalizeBookLengthWithParameters optimalBookLengthInPages 0.75 numberOfPages)
 
 
 normalizeBookLengthWithParameters : Float -> Float -> Float -> Float
@@ -200,7 +200,7 @@ normalizeBookLengthWithParameters optimalBookLengthInPages optimalBookLengthScor
         k =
             (optimalBookLengthInPages ^ 2 * optimalBookLengthScore) / (1 - optimalBookLengthScore)
     in
-        k / (bookLengthInPages ^ 2 + k) * 100
+    k / (bookLengthInPages ^ 2 + k) * 100
 
 
 renderPriorityFormula : Book -> String
@@ -218,7 +218,7 @@ renderPriorityFormula book =
         formula =
             List.map2 (\x y -> x ++ " * " ++ y) weightsAsStrings valuesAsString |> String.join " + "
     in
-        formula ++ " = " ++ (toString priority)
+    formula ++ " = " ++ toString priority
 
 
 calculateAuthorsAverageRating : List Author -> Int
@@ -228,9 +228,9 @@ calculateAuthorsAverageRating authors =
             List.length authors
 
         averageRating =
-            Utils.interpolation (List.repeat authorsCount (1 / (toFloat authorsCount))) (List.map .averageRating authors)
+            Utils.interpolation (List.repeat authorsCount (1 / toFloat authorsCount)) (List.map .averageRating authors)
     in
-        round averageRating
+    round averageRating
 
 
 calculatePopularity : Int -> Int
@@ -245,7 +245,7 @@ calculatePopularity ratingsCount =
         f =
             Utils.increasingFunction averageRatingsCount ratingForAverage
     in
-        round (f (toFloat ratingsCount) * 100)
+    round (f (toFloat ratingsCount) * 100)
 
 
 
@@ -254,7 +254,12 @@ calculatePopularity ratingsCount =
 
 calculatePassion : Book -> Int
 calculatePassion book =
-    round (((toFloat book.textReviewsCount) / (toFloat book.ratingsCount)) * 100)
+    case book.ratingsCount of
+        0 ->
+            0
+
+        ratingsCount ->
+            round ((toFloat book.textReviewsCount / toFloat ratingsCount) * 100)
 
 
 defaultPriorityWeights : PriorityWeights
@@ -281,12 +286,12 @@ calculateExpectedMinutesPerPageMultiplier books readStatues today =
                     (\bookId readStatus ->
                         let
                             interval =
-                                (Date.toTime today) - (Date.toTime readStatus.startedReading)
+                                Date.toTime today - Date.toTime readStatus.startedReading
 
                             sixMonthsInMilliseconds =
                                 6 * 30 * 24 * Time.hour
                         in
-                            interval <= sixMonthsInMilliseconds
+                        interval <= sixMonthsInMilliseconds
                     )
 
         readStatuesAndBooks =
@@ -294,23 +299,22 @@ calculateExpectedMinutesPerPageMultiplier books readStatues today =
 
         averageMinutesPerPagePerBook =
             Dict.values readStatuesAndBooks
-                |> (List.filterMap
-                        (\( readStatus, book ) ->
-                            case ( book.numberOfPages, readStatus.finishedReading ) of
-                                ( Just numberOfPages, Just finishedReading ) ->
-                                    Just (calculateAverageMinutesPerPage numberOfPages readStatus.startedReading finishedReading)
+                |> List.filterMap
+                    (\( readStatus, book ) ->
+                        case ( book.numberOfPages, readStatus.finishedReading ) of
+                            ( Just numberOfPages, Just finishedReading ) ->
+                                Just (calculateAverageMinutesPerPage numberOfPages readStatus.startedReading finishedReading)
 
-                                _ ->
-                                    Nothing
-                        )
-                   )
+                            _ ->
+                                Nothing
+                    )
     in
-        case averageMinutesPerPagePerBook of
-            [] ->
-                Nothing
+    case averageMinutesPerPagePerBook of
+        [] ->
+            Nothing
 
-            _ ->
-                Just (Statistics.median averageMinutesPerPagePerBook)
+        _ ->
+            Just (Statistics.median averageMinutesPerPagePerBook)
 
 
 calculateAverageMinutesPerPage : Int -> Date -> Date -> Float
@@ -322,7 +326,7 @@ calculateAverageMinutesPerPage numberOfPages startedReading finishedReading =
         durationInMinutes =
             durationInMs / 60000
     in
-        durationInMinutes / toFloat numberOfPages
+    durationInMinutes / toFloat numberOfPages
 
 
 calculateExpectedReadingTimeInMinutes : Float -> Int -> Float
