@@ -191,8 +191,11 @@ const fetchBookDetails = bookId => {
       const ignoreTags = [
         'books-i-own',
         'to-read',
+        'to-buy',
+        'wish-list',
         'currently-reading',
         'owned',
+        'owned-books',
         'favorites',
         'books-i-don-t-own',
         'audiobook',
@@ -211,10 +214,13 @@ const fetchBookDetails = bookId => {
         clàssics: 'classic',
         'graphic-novels': 'graphic-novel',
         comics: 'graphic-novel', // questionable
-        novels: 'novel'
+        novels: 'fiction',
+        novel: 'fiction',
+        'to-read-non-fiction': 'non-fiction'
       };
 
       const tags = book.popular_shelves[0].shelf
+        .filter(s => s['$']['count'] > 1)
         .map(s => s['$']['name'])
         .filter(tag => {
           const currentYear = moment().year();
@@ -223,7 +229,8 @@ const fetchBookDetails = bookId => {
           );
         })
         .map(tag => (replacements[tag] ? replacements[tag] : tag))
-        .slice(0, 3);
+        .map(tag => (tag.includes('nonfiction') ? 'non-fiction' : tag))
+        .slice(0, 10);
 
       const published = parseInt(
         book.work[0].original_publication_year[0]['_']

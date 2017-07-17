@@ -22,7 +22,7 @@ bookHasTag selectedTags book =
     if Set.isEmpty selectedTags == True then
         True
     else
-        isSubset selectedTags book.tags
+        isSubset selectedTags (normalizedTags book.tags)
 
 
 rootView : Model -> Html Msg
@@ -39,7 +39,7 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
             List.filterMap (\bookId -> Dict.get bookId books) list
 
         tags =
-            Set.fromList (List.concatMap (.tags >> Set.toList) expandedList)
+            Set.fromList [ "fiction", "non-fiction" ]
 
         filteredList =
             List.filter (bookHasTag selectedTags) expandedList
@@ -51,6 +51,7 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
             , userIdView goodReadsUserId
             , listCountView expandedList
             , readingSpeedView expectedMinutesPerPageMultiplier
+            , div [ id "tags" ] (Set.toList tags |> List.sort |> List.map (tagView selectedTags))
             , div [ id "list" ]
                 [ case list of
                     [] ->
@@ -79,6 +80,33 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
         ]
 
 
+normalizedTags : Set String -> Set String
+normalizedTags tags =
+    let
+        fictionTags =
+            Set.fromList [ "fiction", "graphic-novel" ]
+
+        nonFictionTags =
+            Set.fromList [ "non-fiction", "cooking", "cookbooks", "biography", "programming", "business", "economics", "science", "autobiographies" ]
+    in
+    Set.toList tags
+        |> List.concatMap
+            (\tag ->
+                []
+                    ++ (if Set.member tag fictionTags then
+                            [ "fiction" ]
+                        else
+                            []
+                       )
+                    ++ (if Set.member tag nonFictionTags then
+                            [ "non-fiction" ]
+                        else
+                            []
+                       )
+            )
+        |> Set.fromList
+
+
 config : Maybe Float -> Table.Config Book Msg
 config expectedMinutesPerPageMultiplier =
     Table.config
@@ -86,7 +114,7 @@ config expectedMinutesPerPageMultiplier =
         , toMsg = SetTableState
         , columns =
             [ titleColumn
-            , Table.stringColumn "Tags" (.tags >> Set.toList >> List.sort >> String.join ", ")
+            , Table.stringColumn "Type" (.tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
             , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
             , Table.intColumn "Average Rating of Authors" (.authors >> State.calculateAuthorsAverageRating)
             , Table.stringColumn "Publication Year" (\book -> Maybe.withDefault "?" (Maybe.map toString book.published))
