@@ -1,12 +1,12 @@
 module Api exposing (fetchUserData, getGoodreadsBookDetails)
 
-import Json.Decode as Decode
+import Date exposing (Date)
 import Dict exposing (Dict)
 import Http
-import Types exposing (..)
-import Utils exposing (map11)
-import Date exposing (Date)
+import Json.Decode as Decode
 import Set
+import Types exposing (..)
+import Utils exposing (map12)
 
 
 apiUrl : String -> String -> String
@@ -24,7 +24,7 @@ fetchUserData apiHost userId =
 getGoodreadsBookDetails : String -> List String -> Cmd Msg
 getGoodreadsBookDetails apiHost bookIds =
     Http.send LoadGoodreadsBookDetails <|
-        Http.get (apiUrl apiHost ("/api/goodreads/books?bookIds=" ++ (String.join "," bookIds))) (Decode.at [ "data", "books" ] decodeBooks)
+        Http.get (apiUrl apiHost ("/api/goodreads/books?bookIds=" ++ String.join "," bookIds)) (Decode.at [ "data", "books" ] decodeBooks)
 
 
 getGoodreadsShelfData : String -> String -> String -> Cmd Msg
@@ -48,7 +48,7 @@ decodeBooks =
 
 decodeBook : Decode.Decoder Book
 decodeBook =
-    map11 Book
+    map12 Book
         (Decode.field "id" Decode.string)
         (Decode.field "title" Decode.string)
         (Decode.field "description" Decode.string)
@@ -56,12 +56,23 @@ decodeBook =
         (Decode.field "authors" (Decode.list decodeAuthor))
         (Decode.field "numberOfPages" (Decode.nullable Decode.int))
         (Decode.field "averageRating" Decode.float)
+        (Decode.maybe (Decode.field "ratingDistribution" decodeRatingsDistribution))
         (Decode.field "ratingsCount" Decode.int)
         (Decode.field "textReviewsCount" Decode.int)
         (Decode.maybe (Decode.field "published" Decode.int))
         (Decode.map (Maybe.withDefault Set.empty)
             (Decode.maybe (Decode.field "tags" (Decode.map Set.fromList (Decode.list Decode.string))))
         )
+
+
+decodeRatingsDistribution : Decode.Decoder RatingDistribution
+decodeRatingsDistribution =
+    Decode.map5 RatingDistribution
+        (Decode.field "1" Decode.int)
+        (Decode.field "2" Decode.int)
+        (Decode.field "3" Decode.int)
+        (Decode.field "4" Decode.int)
+        (Decode.field "5" Decode.int)
 
 
 decodeAuthor : Decode.Decoder Author
@@ -86,7 +97,7 @@ decodeDate =
         converter =
             Maybe.withDefault "" >> Date.fromString >> Result.toMaybe
     in
-        Decode.map converter (Decode.nullable Decode.string)
+    Decode.map converter (Decode.nullable Decode.string)
 
 
 decodeReadStatus : Decode.Decoder ReadStatus

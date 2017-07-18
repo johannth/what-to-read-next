@@ -106,8 +106,8 @@ config expectedMinutesPerPageMultiplier =
                 , Table.stringColumn "Type" (.tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
                 , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
                 , Table.stringColumn "Publication Year" (\book -> Maybe.withDefault "?" (Maybe.map toString book.published))
-                , Table.intColumn "Average Rating" (.averageRating >> round)
-                , Table.intColumn "# of Ratings" .ratingsCount
+                , Table.intColumn "Average Rating" (averageRatingForBook >> round)
+                , Table.intColumn "# of Ratings" ratingsCountForBook
                 , Table.intColumn "# of Text Reviews" .textReviewsCount
                 , Table.stringColumn "Number of Pages" (\book -> Maybe.withDefault "?" (Maybe.map toString book.numberOfPages))
                 , readingTimeColumn expectedMinutesPerPageMultiplier

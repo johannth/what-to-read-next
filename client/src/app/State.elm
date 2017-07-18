@@ -162,13 +162,19 @@ calculatePriorityWithWeights weights book =
 normalizedBookRating : Book -> Float
 normalizedBookRating book =
     let
+        ratingsCount =
+            ratingsCountForBook book
+
         popularityRating =
-            calculatePopularity book.ratingsCount
+            calculatePopularity ratingsCount
+
+        rating =
+            averageRatingForBook book
     in
-    if book.ratingsCount >= 50 then
-        book.averageRating
+    if ratingsCount >= 50 then
+        rating
     else
-        0.5 * book.averageRating + 0.5 * book.averageRating * (toFloat popularityRating / 100)
+        0.5 * rating + 0.5 * rating * (toFloat popularityRating / 100)
 
 
 calculatePriorityValues : Book -> List Float
@@ -201,7 +207,7 @@ calculateSecretRating : Book -> Int
 calculateSecretRating book =
     let
         popularityRating =
-            calculatePopularity book.ratingsCount
+            calculatePopularity (ratingsCountForBook book)
     in
     100 - popularityRating
 
@@ -279,7 +285,7 @@ calculatePopularity ratingsCount =
 
 calculatePassion : Book -> Int
 calculatePassion book =
-    case book.ratingsCount of
+    case ratingsCountForBook book of
         0 ->
             0
 

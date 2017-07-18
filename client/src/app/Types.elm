@@ -68,11 +68,60 @@ type alias Book =
     , authors : List Author
     , numberOfPages : Maybe Int
     , averageRating : Float
+    , ratingDistribution : Maybe RatingDistribution
     , ratingsCount : Int
     , textReviewsCount : Int
     , published : Maybe Int
     , tags : Set String
     }
+
+
+type alias RatingDistribution =
+    { rating0 : Int
+    , rating25 : Int
+    , rating50 : Int
+    , rating75 : Int
+    , rating100 : Int
+    }
+
+
+averageRatingForBook : Book -> Float
+averageRatingForBook book =
+    case book.ratingDistribution of
+        Just ratingDistribution ->
+            averageFromRatingDistribution ratingDistribution
+
+        Nothing ->
+            book.averageRating
+
+
+ratingsCountForBook : Book -> Int
+ratingsCountForBook book =
+    case book.ratingDistribution of
+        Just ratingDistribution ->
+            ratingsCountFromRatingDistribution ratingDistribution
+
+        Nothing ->
+            book.ratingsCount
+
+
+ratingsCountFromRatingDistribution : RatingDistribution -> Int
+ratingsCountFromRatingDistribution ratingDistribution =
+    ratingDistribution.rating0 + ratingDistribution.rating25 + ratingDistribution.rating50 + ratingDistribution.rating75 + ratingDistribution.rating100
+
+
+averageFromRatingDistribution : RatingDistribution -> Float
+averageFromRatingDistribution ratingDistribution =
+    let
+        ratingsCount =
+            ratingsCountFromRatingDistribution ratingDistribution
+    in
+    case ratingsCount of
+        0 ->
+            0.0
+
+        _ ->
+            toFloat (0 * ratingDistribution.rating0 + 25 * ratingDistribution.rating25 + 50 * ratingDistribution.rating50 + 75 * ratingDistribution.rating75 + 100 * ratingDistribution.rating100) / toFloat ratingsCount
 
 
 normalizedTags : Set String -> Set String
