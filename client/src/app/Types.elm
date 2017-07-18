@@ -1,11 +1,11 @@
 module Types exposing (..)
 
-import Table
+import Date exposing (Date)
 import Dict exposing (Dict)
 import Http
-import Date exposing (Date)
 import Navigation
 import Set exposing (Set)
+import Table
 
 
 type alias Model =
@@ -73,6 +73,55 @@ type alias Book =
     , published : Maybe Int
     , tags : Set String
     }
+
+
+normalizedTags : Set String -> Set String
+normalizedTags tags =
+    let
+        fictionTags =
+            Set.fromList [ "fiction", "graphic-novel" ]
+
+        nonFictionTags =
+            Set.fromList [ "non-fiction", "cooking", "cookbooks", "biography", "programming", "business", "economics", "science", "autobiographies" ]
+    in
+    Set.toList tags
+        |> List.concatMap
+            (\tag ->
+                []
+                    ++ (if Set.member tag fictionTags then
+                            [ "fiction" ]
+                        else
+                            []
+                       )
+                    ++ (if Set.member tag nonFictionTags then
+                            [ "non-fiction" ]
+                        else
+                            []
+                       )
+            )
+        |> Set.fromList
+
+
+type BookType
+    = Fiction
+    | NonFiction
+    | Other
+
+
+bookType : Book -> BookType
+bookType book =
+    let
+        tags =
+            normalizedTags book.tags
+    in
+    if Set.member "fiction" tags && Set.member "non-fiction" tags then
+        Other
+    else if Set.member "fiction" tags then
+        Fiction
+    else if Set.member "non-fiction" tags then
+        NonFiction
+    else
+        Other
 
 
 type alias ReadStatus =

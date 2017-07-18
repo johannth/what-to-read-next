@@ -276,7 +276,12 @@ const fetchBookDetails = bookId => {
 app.get('/api/goodreads/books', (req, res) => {
   const bookIds = req.query.bookIds.split(',').slice(0, 50);
   Promise.all(
-    bookIds.map(bookId => fetchBookDetails(bookId).catch(error => null))
+    bookIds.map(bookId =>
+      fetchBookDetails(bookId).catch(error => {
+        console.log(error);
+        return null;
+      })
+    )
   ).then(bookResults => {
     const books = bookResults.reduce((accumulator, book) => {
       if (book) {

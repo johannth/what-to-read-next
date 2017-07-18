@@ -139,14 +139,36 @@ update msg model =
             { model | today = Just date } ! []
 
 
+weightsForBook : Book -> PriorityWeights
+weightsForBook book =
+    case bookType book of
+        Fiction ->
+            defaultPriorityWeightsForFiction
+
+        _ ->
+            defaultPriorityWeightsForNonFiction
+
+
 calculatePriority : Book -> Float
-calculatePriority =
-    calculatePriorityWithWeights defaultPriorityWeights
+calculatePriority book =
+    calculatePriorityWithWeights (weightsForBook book) book
 
 
 calculatePriorityWithWeights : PriorityWeights -> Book -> Float
 calculatePriorityWithWeights weights book =
     Utils.interpolation (priorityWeightsToList weights) (calculatePriorityValues book)
+
+
+normalizedBookRating : Book -> Float
+normalizedBookRating book =
+    let
+        popularityRating =
+            calculatePopularity book.ratingsCount
+    in
+    if book.ratingsCount >= 50 then
+        book.averageRating
+    else
+        0.5 * book.averageRating + 0.5 * book.averageRating * (toFloat popularityRating / 100)
 
 
 calculatePriorityValues : Book -> List Float
@@ -155,20 +177,14 @@ calculatePriorityValues book =
         bookLengthRating =
             calculateBookLengthRating book.numberOfPages
 
-        popularityRating =
-            calculatePopularity book.ratingsCount
-
         secretRating =
-            100 - popularityRating
+            calculateSecretRating book
 
         passionRating =
             calculatePassion book
 
         scaledBookRating =
-            if book.ratingsCount > 100 then
-                book.averageRating
-            else
-                book.averageRating * (toFloat popularityRating / 100)
+            normalizedBookRating book
 
         authorsAverageRating =
             calculateAuthorsAverageRating book.authors
@@ -179,6 +195,15 @@ calculatePriorityValues book =
     , toFloat passionRating
     , toFloat bookLengthRating
     ]
+
+
+calculateSecretRating : Book -> Int
+calculateSecretRating book =
+    let
+        popularityRating =
+            calculatePopularity book.ratingsCount
+    in
+    100 - popularityRating
 
 
 calculateBookLengthRating : Maybe Int -> Int
@@ -207,7 +232,7 @@ renderPriorityFormula : Book -> String
 renderPriorityFormula book =
     let
         weightsAsStrings =
-            List.map toString (priorityWeightsToList defaultPriorityWeights)
+            List.map toString (priorityWeightsToList (weightsForBook book))
 
         valuesAsString =
             List.map (round >> toString) (calculatePriorityValues book)
@@ -262,13 +287,23 @@ calculatePassion book =
             round ((toFloat book.textReviewsCount / toFloat ratingsCount) * 100)
 
 
-defaultPriorityWeights : PriorityWeights
-defaultPriorityWeights =
+defaultPriorityWeightsForNonFiction : PriorityWeights
+defaultPriorityWeightsForNonFiction =
     { rating = 0.4
-    , authors = 0.05
-    , secret = 0.25
-    , passion = 0.05
-    , length = 0.25
+    , authors = 0
+    , secret = 0.2
+    , passion = 0
+    , length = 0.4
+    }
+
+
+defaultPriorityWeightsForFiction : PriorityWeights
+defaultPriorityWeightsForFiction =
+    { rating = 0.6
+    , authors = 0
+    , secret = 0.1
+    , passion = 0
+    , length = 0.3
     }
 
 

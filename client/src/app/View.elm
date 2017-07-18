@@ -80,54 +80,40 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
         ]
 
 
-normalizedTags : Set String -> Set String
-normalizedTags tags =
-    let
-        fictionTags =
-            Set.fromList [ "fiction", "graphic-novel" ]
-
-        nonFictionTags =
-            Set.fromList [ "non-fiction", "cooking", "cookbooks", "biography", "programming", "business", "economics", "science", "autobiographies" ]
-    in
-    Set.toList tags
-        |> List.concatMap
-            (\tag ->
-                []
-                    ++ (if Set.member tag fictionTags then
-                            [ "fiction" ]
-                        else
-                            []
-                       )
-                    ++ (if Set.member tag nonFictionTags then
-                            [ "non-fiction" ]
-                        else
-                            []
-                       )
-            )
-        |> Set.fromList
-
-
 config : Maybe Float -> Table.Config Book Msg
 config expectedMinutesPerPageMultiplier =
-    Table.config
-        { toId = .id
-        , toMsg = SetTableState
-        , columns =
-            [ titleColumn
-            , Table.stringColumn "Type" (.tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
-            , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
-            , Table.intColumn "Average Rating of Authors" (.authors >> State.calculateAuthorsAverageRating)
-            , Table.stringColumn "Publication Year" (\book -> Maybe.withDefault "?" (Maybe.map toString book.published))
-            , Table.intColumn "Average Rating" (.averageRating >> round)
-            , Table.intColumn "# of Ratings" .ratingsCount
-            , Table.intColumn "# of Text Reviews" .textReviewsCount
-            , Table.intColumn "Popularity" (.ratingsCount >> State.calculatePopularity)
-            , Table.intColumn "Passion" State.calculatePassion
-            , Table.stringColumn "Number of Pages" (\book -> Maybe.withDefault "?" (Maybe.map toString book.numberOfPages))
-            , readingTimeColumn expectedMinutesPerPageMultiplier
-            , priorityColumn
-            ]
-        }
+    if True then
+        Table.config
+            { toId = .id
+            , toMsg = SetTableState
+            , columns =
+                [ titleColumn
+                , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
+                , Table.stringColumn "Type" (.tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
+                , Table.intColumn "Rating (0-100)" (State.normalizedBookRating >> round)
+                , Table.intColumn "Secret (0-100)" State.calculateSecretRating
+                , Table.intColumn "Shortness (0-100)" (.numberOfPages >> State.calculateBookLengthRating)
+                , readingTimeColumn expectedMinutesPerPageMultiplier
+                , priorityColumn
+                ]
+            }
+    else
+        Table.config
+            { toId = .id
+            , toMsg = SetTableState
+            , columns =
+                [ titleColumn
+                , Table.stringColumn "Type" (.tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
+                , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
+                , Table.stringColumn "Publication Year" (\book -> Maybe.withDefault "?" (Maybe.map toString book.published))
+                , Table.intColumn "Average Rating" (.averageRating >> round)
+                , Table.intColumn "# of Ratings" .ratingsCount
+                , Table.intColumn "# of Text Reviews" .textReviewsCount
+                , Table.stringColumn "Number of Pages" (\book -> Maybe.withDefault "?" (Maybe.map toString book.numberOfPages))
+                , readingTimeColumn expectedMinutesPerPageMultiplier
+                , priorityColumn
+                ]
+            }
 
 
 buildInfoView : BuildInfo -> Html Msg
