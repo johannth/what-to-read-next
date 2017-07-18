@@ -120,13 +120,13 @@ const fetchShelf = (userId, shelf) => {
           return {
             id: author.id[0],
             name: author.name[0],
-            averageRating: parseFloat(author.average_rating[0] || '0') * 20,
+            averageRating: parseFloat(author.average_rating[0] || '0') / 5,
             ratingsCount: parseInt(author.ratings_count[0] || '0'),
             textReviewsCount: parseInt(author.text_reviews_count[0] || '0')
           };
         }),
         numberOfPages: numberOfPages,
-        averageRating: parseFloat(book.average_rating[0] || '0') * 20,
+        averageRating: parseFloat(book.average_rating[0] || '0') / 5,
         ratingsCount: parseInt(book.ratings_count[0] || '0'),
         textReviewsCount: parseInt(book.text_reviews_count[0]['_'] || '0'),
         published: published
@@ -256,13 +256,13 @@ const fetchBookDetails = bookId => {
           return {
             id: author.id[0],
             name: author.name[0],
-            averageRating: parseFloat(author.average_rating[0] || '0') * 20,
+            averageRating: parseFloat(author.average_rating[0] || '0') / 5,
             ratingsCount: parseInt(author.ratings_count[0] || '0'),
             textReviewsCount: parseInt(author.text_reviews_count[0] || '0')
           };
         }),
         numberOfPages: parseInt(book.num_pages[0]),
-        averageRating: parseFloat(book.average_rating[0] || '0') * 20,
+        averageRating: parseFloat(book.average_rating[0] || '0') / 5,
         ratingsCount: parseInt(book.ratings_count[0] || '0'),
         textReviewsCount: parseInt(book.text_reviews_count[0] || '0'),
         ratingDistribution,

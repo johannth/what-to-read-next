@@ -90,11 +90,13 @@ config expectedMinutesPerPageMultiplier =
                 [ titleColumn
                 , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
                 , Table.stringColumn "Type" (.tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
-                , Table.intColumn "Rating (0-100)" (State.normalizedBookRating >> round)
-                , Table.intColumn "Secret (0-100)" State.calculateSecretRating
-                , Table.intColumn "Shortness (0-100)" (.numberOfPages >> State.calculateBookLengthRating)
+                , prettyFloatColumn "Rating (0-100)" State.normalizedBookRating
+                , prettyFloatColumn "Variance" (varianceOfRatingsForBook >> Maybe.withDefault -1)
+                , Table.stringColumn "Beta" (estimateBetaDistributionParametersForBook >> Maybe.map (\parameters -> "A=" ++ toString parameters.alpha ++ ", B=" ++ toString parameters.beta) >> Maybe.withDefault "N/A")
+                , prettyFloatColumn "Secret (0-100)" State.calculateSecretRating
+                , prettyFloatColumn "Shortness (0-100)" (.numberOfPages >> State.calculateBookLengthRating)
                 , readingTimeColumn expectedMinutesPerPageMultiplier
-                , priorityColumn
+                , prettyFloatColumn "Priority" State.calculatePriority
                 ]
             }
     else
@@ -106,12 +108,12 @@ config expectedMinutesPerPageMultiplier =
                 , Table.stringColumn "Type" (.tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
                 , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
                 , Table.stringColumn "Publication Year" (\book -> Maybe.withDefault "?" (Maybe.map toString book.published))
-                , Table.intColumn "Average Rating" (averageRatingForBook >> round)
+                , Table.intColumn "Average Rating" (meanRatingForBook >> round)
                 , Table.intColumn "# of Ratings" ratingsCountForBook
                 , Table.intColumn "# of Text Reviews" .textReviewsCount
                 , Table.stringColumn "Number of Pages" (\book -> Maybe.withDefault "?" (Maybe.map toString book.numberOfPages))
                 , readingTimeColumn expectedMinutesPerPageMultiplier
-                , priorityColumn
+                , prettyFloatColumn "Priority" State.calculatePriority
                 ]
             }
 
@@ -162,12 +164,12 @@ readingTimeColumn expectedMinutesPerPageMultiplier =
     Table.stringColumn "Expected Reading Time" readingTime
 
 
-priorityColumn : Table.Column Book Msg
-priorityColumn =
-    Table.veryCustomColumn
-        { name = "Priority"
-        , viewData = \book -> cellWithToolTip (State.renderPriorityFormula book) (State.calculatePriority book |> round |> toString)
-        , sorter = Table.decreasingOrIncreasingBy State.calculatePriority
+prettyFloatColumn : String -> (data -> Float) -> Table.Column data msg
+prettyFloatColumn name value =
+    Table.customColumn
+        { name = name
+        , viewData = value >> Round.round 3
+        , sorter = Table.decreasingOrIncreasingBy value
         }
 
 

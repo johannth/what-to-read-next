@@ -85,11 +85,11 @@ type alias RatingDistribution =
     }
 
 
-averageRatingForBook : Book -> Float
-averageRatingForBook book =
+meanRatingForBook : Book -> Float
+meanRatingForBook book =
     case book.ratingDistribution of
         Just ratingDistribution ->
-            averageFromRatingDistribution ratingDistribution
+            meanRatingFromRatingDistribution ratingDistribution
 
         Nothing ->
             book.averageRating
@@ -105,13 +105,97 @@ ratingsCountForBook book =
             book.ratingsCount
 
 
+standardDeviationOfRatingsForBook : Book -> Maybe Float
+standardDeviationOfRatingsForBook book =
+    Maybe.map standardDeviationOfRatingsFromRatingsDistribution book.ratingDistribution
+
+
+standardDeviationOfRatingsFromRatingsDistribution : RatingDistribution -> Float
+standardDeviationOfRatingsFromRatingsDistribution ratingDistribution =
+    sqrt (varianceOfRatingsFromRatingsDistribution ratingDistribution)
+
+
+varianceOfRatingsForBook : Book -> Maybe Float
+varianceOfRatingsForBook book =
+    Maybe.map varianceOfRatingsFromRatingsDistribution book.ratingDistribution
+
+
+varianceOfRatingsFromRatingsDistribution : RatingDistribution -> Float
+varianceOfRatingsFromRatingsDistribution ratingDistribution =
+    let
+        mean =
+            meanRatingFromRatingDistribution ratingDistribution
+
+        n =
+            ratingsCountFromRatingDistribution ratingDistribution
+    in
+    case n of
+        0 ->
+            0
+
+        _ ->
+            (toFloat ratingDistribution.rating0
+                * (0.2 - mean)
+                ^ 2
+                + toFloat ratingDistribution.rating25
+                * (0.4 - mean)
+                ^ 2
+                + toFloat ratingDistribution.rating50
+                * (0.6 - mean)
+                ^ 2
+                + toFloat ratingDistribution.rating75
+                * (0.8 - mean)
+                ^ 2
+                + toFloat ratingDistribution.rating100
+                * (1 - mean)
+                ^ 2
+            )
+                / toFloat n
+
+
+type alias BetaDistributionParameters =
+    { alpha : Float
+    , beta : Float
+    }
+
+
+estimateBetaDistributionParametersForBook : Book -> Maybe BetaDistributionParameters
+estimateBetaDistributionParametersForBook book =
+    Maybe.map
+        (\ratingDistribution ->
+            let
+                mean =
+                    meanRatingFromRatingDistribution ratingDistribution
+
+                variance =
+                    varianceOfRatingsFromRatingsDistribution ratingDistribution
+            in
+            estimateBetaDistributionParameters mean variance
+        )
+        book.ratingDistribution
+
+
+estimateBetaDistributionParameters : Float -> Float -> BetaDistributionParameters
+estimateBetaDistributionParameters mean variance =
+    -- mean in [0, 1]
+    -- variance in []
+    let
+        alpha =
+            ((1 - mean) / variance ^ 2 - 1 / mean) * mean ^ 2
+
+        beta =
+            alpha * (1 / mean - 1)
+    in
+    { alpha = alpha, beta = beta }
+
+
 ratingsCountFromRatingDistribution : RatingDistribution -> Int
 ratingsCountFromRatingDistribution ratingDistribution =
     ratingDistribution.rating0 + ratingDistribution.rating25 + ratingDistribution.rating50 + ratingDistribution.rating75 + ratingDistribution.rating100
 
 
-averageFromRatingDistribution : RatingDistribution -> Float
-averageFromRatingDistribution ratingDistribution =
+meanRatingFromRatingDistribution : RatingDistribution -> Float
+meanRatingFromRatingDistribution ratingDistribution =
     let
         ratingsCount =
             ratingsCountFromRatingDistribution ratingDistribution
@@ -121,7 +205,7 @@ averageFromRatingDistribution ratingDistribution =
             0.0
 
         _ ->
-            toFloat (0 * ratingDistribution.rating0 + 25 * ratingDistribution.rating25 + 50 * ratingDistribution.rating50 + 75 * ratingDistribution.rating75 + 100 * ratingDistribution.rating100) / toFloat ratingsCount
+            (0.2 * toFloat ratingDistribution.rating0 + 0.4 * toFloat ratingDistribution.rating25 + 0.6 * toFloat ratingDistribution.rating50 + 0.8 * toFloat ratingDistribution.rating75 + 1.0 * toFloat ratingDistribution.rating100) / toFloat ratingsCount
 
 
 normalizedTags : Set String -> Set String

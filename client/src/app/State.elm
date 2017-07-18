@@ -169,12 +169,12 @@ normalizedBookRating book =
             calculatePopularity ratingsCount
 
         rating =
-            averageRatingForBook book
+            meanRatingForBook book
     in
     if ratingsCount >= 50 then
         rating
     else
-        0.5 * rating + 0.5 * rating * (toFloat popularityRating / 100)
+        0.5 * rating + 0.5 * rating * popularityRating
 
 
 calculatePriorityValues : Book -> List Float
@@ -196,23 +196,23 @@ calculatePriorityValues book =
             calculateAuthorsAverageRating book.authors
     in
     [ scaledBookRating
-    , toFloat authorsAverageRating
-    , toFloat secretRating
-    , toFloat passionRating
-    , toFloat bookLengthRating
+    , authorsAverageRating
+    , secretRating
+    , passionRating
+    , bookLengthRating
     ]
 
 
-calculateSecretRating : Book -> Int
+calculateSecretRating : Book -> Float
 calculateSecretRating book =
     let
         popularityRating =
             calculatePopularity (ratingsCountForBook book)
     in
-    100 - popularityRating
+    1 - popularityRating
 
 
-calculateBookLengthRating : Maybe Int -> Int
+calculateBookLengthRating : Maybe Int -> Float
 calculateBookLengthRating maybeNumberOfPages =
     let
         optimalBookLengthInPages : Float
@@ -222,7 +222,7 @@ calculateBookLengthRating maybeNumberOfPages =
         numberOfPages =
             Maybe.withDefault 400 (Maybe.map toFloat maybeNumberOfPages)
     in
-    round (normalizeBookLengthWithParameters optimalBookLengthInPages 0.75 numberOfPages)
+    normalizeBookLengthWithParameters optimalBookLengthInPages 0.75 numberOfPages
 
 
 normalizeBookLengthWithParameters : Float -> Float -> Float -> Float
@@ -231,7 +231,7 @@ normalizeBookLengthWithParameters optimalBookLengthInPages optimalBookLengthScor
         k =
             (optimalBookLengthInPages ^ 2 * optimalBookLengthScore) / (1 - optimalBookLengthScore)
     in
-    k / (bookLengthInPages ^ 2 + k) * 100
+    k / (bookLengthInPages ^ 2 + k)
 
 
 renderPriorityFormula : Book -> String
@@ -252,7 +252,7 @@ renderPriorityFormula book =
     formula ++ " = " ++ toString priority
 
 
-calculateAuthorsAverageRating : List Author -> Int
+calculateAuthorsAverageRating : List Author -> Float
 calculateAuthorsAverageRating authors =
     let
         authorsCount =
@@ -261,10 +261,10 @@ calculateAuthorsAverageRating authors =
         averageRating =
             Utils.interpolation (List.repeat authorsCount (1 / toFloat authorsCount)) (List.map .averageRating authors)
     in
-    round averageRating
+    averageRating
 
 
-calculatePopularity : Int -> Int
+calculatePopularity : Int -> Float
 calculatePopularity ratingsCount =
     let
         averageRatingsCount =
@@ -276,21 +276,31 @@ calculatePopularity ratingsCount =
         f =
             Utils.increasingFunction averageRatingsCount ratingForAverage
     in
-    round (f (toFloat ratingsCount) * 100)
+    f (toFloat ratingsCount)
 
 
 
 -- By passion we're trying to capture effort put into book (now by looking at percentage of text reviews)
 
 
-calculatePassion : Book -> Int
+calculatePassion : Book -> Float
 calculatePassion book =
     case ratingsCountForBook book of
         0 ->
             0
 
         ratingsCount ->
-            round ((toFloat book.textReviewsCount / toFloat ratingsCount) * 100)
+            toFloat book.textReviewsCount / toFloat ratingsCount
+
+
+calculateDisagreement : Book -> Float
+calculateDisagreement book =
+    case book.ratingDistribution of
+        Just ratingDistribution ->
+            standardDeviationOfRatingsFromRatingsDistribution ratingDistribution
+
+        Nothing ->
+            50
 
 
 defaultPriorityWeightsForNonFiction : PriorityWeights
