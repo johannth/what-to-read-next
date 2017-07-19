@@ -77,11 +77,11 @@ type alias Book =
 
 
 type alias RatingDistribution =
-    { rating0 : Int
-    , rating25 : Int
-    , rating50 : Int
-    , rating75 : Int
-    , rating100 : Int
+    { rating1 : Int
+    , rating2 : Int
+    , rating3 : Int
+    , rating4 : Int
+    , rating5 : Int
     }
 
 
@@ -127,30 +127,34 @@ varianceOfRatingsFromRatingsDistribution ratingDistribution =
             meanRatingFromRatingDistribution ratingDistribution
 
         n =
-            ratingsCountFromRatingDistribution ratingDistribution
+            toFloat (ratingsCountFromRatingDistribution ratingDistribution)
     in
     case n of
         0 ->
             0
 
         _ ->
-            (toFloat ratingDistribution.rating0
-                * (0.2 - mean)
-                ^ 2
-                + toFloat ratingDistribution.rating25
-                * (0.4 - mean)
-                ^ 2
-                + toFloat ratingDistribution.rating50
-                * (0.6 - mean)
-                ^ 2
-                + toFloat ratingDistribution.rating75
-                * (0.8 - mean)
-                ^ 2
-                + toFloat ratingDistribution.rating100
-                * (1 - mean)
-                ^ 2
-            )
-                / toFloat n
+            let
+                p1 =
+                    toFloat ratingDistribution.rating1 / n
+
+                p2 =
+                    toFloat ratingDistribution.rating2 / n
+
+                p3 =
+                    toFloat ratingDistribution.rating3 / n
+
+                p4 =
+                    toFloat ratingDistribution.rating4 / n
+
+                p5 =
+                    toFloat ratingDistribution.rating5 / n
+            in
+            (p1 * ((0.2 - mean) ^ 2))
+                + (p2 * ((0.4 - mean) ^ 2))
+                + (p3 * ((0.6 - mean) ^ 2))
+                + (p4 * ((0.8 - mean) ^ 2))
+                + (p5 * ((1 - mean) ^ 2))
 
 
 type alias BetaDistributionParameters =
@@ -181,7 +185,7 @@ estimateBetaDistributionParameters mean variance =
     -- variance in []
     let
         alpha =
-            ((1 - mean) / variance ^ 2 - 1 / mean) * mean ^ 2
+            ((1 - mean) / variance - 1 / mean) * mean ^ 2
 
         beta =
             alpha * (1 / mean - 1)
@@ -191,7 +195,7 @@ estimateBetaDistributionParameters mean variance =
 
 ratingsCountFromRatingDistribution : RatingDistribution -> Int
 ratingsCountFromRatingDistribution ratingDistribution =
-    ratingDistribution.rating0 + ratingDistribution.rating25 + ratingDistribution.rating50 + ratingDistribution.rating75 + ratingDistribution.rating100
+    ratingDistribution.rating1 + ratingDistribution.rating2 + ratingDistribution.rating3 + ratingDistribution.rating4 + ratingDistribution.rating5
 
 
 meanRatingFromRatingDistribution : RatingDistribution -> Float
@@ -205,7 +209,17 @@ meanRatingFromRatingDistribution ratingDistribution =
             0.0
 
         _ ->
-            (0.2 * toFloat ratingDistribution.rating0 + 0.4 * toFloat ratingDistribution.rating25 + 0.6 * toFloat ratingDistribution.rating50 + 0.8 * toFloat ratingDistribution.rating75 + 1.0 * toFloat ratingDistribution.rating100) / toFloat ratingsCount
+            ((0.2 * toFloat ratingDistribution.rating1)
+                + 0.4
+                * toFloat ratingDistribution.rating2
+                + 0.6
+                * toFloat ratingDistribution.rating3
+                + 0.8
+                * toFloat ratingDistribution.rating4
+                + 1.0
+                * toFloat ratingDistribution.rating5
+            )
+                / toFloat ratingsCount
 
 
 normalizedTags : Set String -> Set String
