@@ -1,5 +1,6 @@
 module View exposing (rootView)
 
+import Beta
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -90,11 +91,14 @@ config expectedMinutesPerPageMultiplier =
                 [ titleColumn
                 , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
                 , Table.stringColumn "Type" (.tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
-                , prettyFloatColumn "Rating (0-100)" State.normalizedBookRating
+                , prettyFloatColumn "Data Confidence" (estimateBetaDistributionParametersForBook >> (Beta.percentiles 5 >> (\( fifth, ninetyFifth ) -> 1 - (ninetyFifth - fifth))))
+                , prettyFloatColumn "Rating (0-1)" meanRatingForBook
+                , prettyFloatColumn "Rating (Worst)" (estimateBetaDistributionParametersForBook >> (Beta.percentiles 5 >> Tuple.first))
+                , prettyFloatColumn "Rating (Best)" (estimateBetaDistributionParametersForBook >> Beta.percentiles 5 >> Tuple.second)
                 , prettyFloatColumn "Variance" (varianceOfRatingsForBook >> Maybe.withDefault -1)
-                , Table.stringColumn "Beta" (estimateBetaDistributionParametersForBook >> Maybe.map (\parameters -> "A=" ++ toString parameters.alpha ++ ", B=" ++ toString parameters.beta) >> Maybe.withDefault "N/A")
-                , prettyFloatColumn "Secret (0-100)" State.calculateSecretRating
-                , prettyFloatColumn "Shortness (0-100)" (.numberOfPages >> State.calculateBookLengthRating)
+                , prettyFloatColumn "Agreement" (estimateBetaDistributionParametersForBook >> (\{ alpha, beta } -> abs (alpha - beta)))
+                , prettyFloatColumn "Secret (0-1)" State.calculateSecretRating
+                , prettyFloatColumn "Shortness (0-1)" (.numberOfPages >> State.calculateBookLengthRating)
                 , readingTimeColumn expectedMinutesPerPageMultiplier
                 , prettyFloatColumn "Priority" State.calculatePriority
                 ]

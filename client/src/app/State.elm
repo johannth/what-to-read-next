@@ -1,6 +1,7 @@
 module State exposing (..)
 
 import Api
+import Beta
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Http
@@ -180,8 +181,23 @@ normalizedBookRating book =
 calculatePriorityValues : Book -> List Float
 calculatePriorityValues book =
     let
-        bookLengthRating =
-            calculateBookLengthRating book.numberOfPages
+        betaParameters =
+            estimateBetaDistributionParametersForBook book
+
+        ( fifth, ninetyFifth ) =
+            Beta.percentiles 5 betaParameters
+
+        dataConfidence =
+            1 - (ninetyFifth - fifth)
+
+        agreement =
+            abs (betaParameters.alpha - betaParameters.beta)
+
+        bookRating =
+            meanRatingForBook book
+
+        authorsAverageRating =
+            calculateAuthorsAverageRating book.authors
 
         secretRating =
             calculateSecretRating book
@@ -189,13 +205,10 @@ calculatePriorityValues book =
         passionRating =
             calculatePassion book
 
-        scaledBookRating =
-            normalizedBookRating book
-
-        authorsAverageRating =
-            calculateAuthorsAverageRating book.authors
+        bookLengthRating =
+            calculateBookLengthRating book.numberOfPages
     in
-    [ scaledBookRating
+    [ bookRating
     , authorsAverageRating
     , secretRating
     , passionRating

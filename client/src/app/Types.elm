@@ -1,5 +1,6 @@
 module Types exposing (..)
 
+import Beta
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Http
@@ -157,40 +158,18 @@ varianceOfRatingsFromRatingsDistribution ratingDistribution =
                 + (p5 * ((1 - mean) ^ 2))
 
 
-type alias BetaDistributionParameters =
-    { alpha : Float
-    , beta : Float
-    }
-
-
-estimateBetaDistributionParametersForBook : Book -> Maybe BetaDistributionParameters
+estimateBetaDistributionParametersForBook : Book -> Beta.BetaDistributionParameters
 estimateBetaDistributionParametersForBook book =
-    Maybe.map
-        (\ratingDistribution ->
-            let
-                mean =
-                    meanRatingFromRatingDistribution ratingDistribution
-
-                variance =
-                    varianceOfRatingsFromRatingsDistribution ratingDistribution
-            in
-            estimateBetaDistributionParameters mean variance
-        )
-        book.ratingDistribution
-
-
-estimateBetaDistributionParameters : Float -> Float -> BetaDistributionParameters
-estimateBetaDistributionParameters mean variance =
-    -- mean in [0, 1]
-    -- variance in []
     let
-        alpha =
-            ((1 - mean) / variance - 1 / mean) * mean ^ 2
+        ( mean, variance ) =
+            case book.ratingDistribution of
+                Just ratingDistribution ->
+                    ( meanRatingFromRatingDistribution ratingDistribution, varianceOfRatingsFromRatingsDistribution ratingDistribution )
 
-        beta =
-            alpha * (1 / mean - 1)
+                Nothing ->
+                    ( book.averageRating, 1 )
     in
-    { alpha = alpha, beta = beta }
+    Beta.estimateBetaDistributionParameters mean variance
 
 
 ratingsCountFromRatingDistribution : RatingDistribution -> Int
