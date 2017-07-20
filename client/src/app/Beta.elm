@@ -22,8 +22,16 @@ lnOfGamma x =
             , 1.208650973866179e-3
             , -5.395239384953e-6
             ]
+
+        ser =
+            1.000000000190015
+                + List.sum
+                    (List.indexedMap (\i cofI -> cofI / (x + toFloat i + 1)) cof)
+
+        tmp =
+            x + 5.5 - (x + 0.5) * logBase e (x + 5.5)
     in
-    x
+    logBase e (2.5066282746310007 * ser / x) - tmp
 
 
 estimateBetaDistributionParameters : Float -> Float -> BetaDistributionParameters
