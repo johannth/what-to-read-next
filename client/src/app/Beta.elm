@@ -34,6 +34,75 @@ lnOfGamma x =
     logBase e (2.5066282746310007 * ser / x) - tmp
 
 
+incompleteBeta : BetaDistributionParameters -> Float -> Float
+incompleteBeta ({ alpha, beta } as parameters) x =
+    let
+        bt =
+            case x of
+                0.0 ->
+                    0
+
+                1.0 ->
+                    0
+
+                _ ->
+                    e ^ (lnOfGamma (alpha + beta) - lnOfGamma alpha - lnOfGamma beta + alpha * logBase e x + beta * logBase e (1 - x))
+    in
+    if x < ((alpha + 1) / (alpha + beta + 2)) then
+        bt * betaContinuedFraction parameters x / alpha
+    else
+        1 - bt * betaContinuedFraction { alpha = beta, beta = alpha } (1 - x) / beta
+
+
+betaContinuedFraction : BetaDistributionParameters -> Float -> Float
+betaContinuedFraction { alpha, beta } x =
+    -- Evaluates the continued fraction for incomplete beta function by modified Lentz's method.
+    let
+        capToFpmin : Float -> Float
+        capToFpmin x =
+            if abs x < 1.0e-30 then
+                1.0e-30
+            else
+                x
+
+        qab =
+            alpha + beta
+
+        qap =
+            alpha + 1
+
+        qam =
+            alpha - 1
+
+        stepOfRecurrence : Float -> ( Float, Float, Float ) -> ( Float, Float, Float )
+        stepOfRecurrence aa ( h, c, d ) =
+            let
+                dNew =
+                    1 / capToFpmin (1 + aa * d)
+
+                cNew =
+                    capToFpmin (1 + aa / c)
+
+                hNew =
+                    h * dNew * cNew
+            in
+            ( hNew, dNew, cNew )
+
+        d0 =
+            1 / capToFpmin (1 - qab * x / qap)
+
+        ( h, c, d ) =
+            List.foldl
+                (\m ( h, c, d ) ->
+                    stepOfRecurrence (m * (beta - m) * x / ((qam + 2 * m) * (alpha + 2 * m))) ( h, c, d )
+                        |> stepOfRecurrence (-1 * (alpha + m) * (qab + m) * x / ((alpha + 2 * m) * (qap + 2 * m)))
+                )
+                ( d0, 1, d0 )
+                (List.range 1 100 |> List.map toFloat)
+    in
+    h
+
+
 estimateBetaDistributionParameters : Float -> Float -> BetaDistributionParameters
 estimateBetaDistributionParameters mean variance =
     -- mean in [0, 1]

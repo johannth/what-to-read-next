@@ -36,4 +36,36 @@ all =
                         -0.120782
                         (Beta.lnOfGamma 1.5)
             ]
+        , describe "incompleteBeta"
+            [ test "incompleteBeta(0, 1, 1) = 0" <|
+                \() ->
+                    equalFloat
+                        0.0
+                        (Beta.incompleteBeta { alpha = 1, beta = 1 } 0)
+            , test "incompleteBeta(1, 1, 1) = 1" <|
+                \() ->
+                    equalFloat
+                        1
+                        (Beta.incompleteBeta { alpha = 1, beta = 1 } 1)
+            , test "incompleteBeta(0.5, 2, 1) = 0.125" <|
+                \() ->
+                    equalFloat
+                        0.25
+                        (Beta.incompleteBeta { alpha = 2, beta = 1 } 0.5)
+            , test "incompleteBeta(0, 1, 3) = 0" <|
+                \() ->
+                    equalFloat
+                        0
+                        (Beta.incompleteBeta { alpha = 1, beta = 3 } 0)
+            , test "incompleteBeta(0.5, 1, 3) = 0.875" <|
+                \() ->
+                    equalFloat
+                        0.875
+                        (Beta.incompleteBeta { alpha = 1, beta = 3 } 0.5)
+            , test "incompleteBeta(1, 1, 3) = 1" <|
+                \() ->
+                    equalFloat
+                        1
+                        (Beta.incompleteBeta { alpha = 1, beta = 3 } 1)
+            ]
         ]
