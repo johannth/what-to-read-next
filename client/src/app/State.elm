@@ -117,8 +117,13 @@ update msg model =
             model ! []
 
         LoadGoodreadsBookDetails (Ok books) ->
+            let
+                ratings =
+                    Dict.map (\bookId book -> calculateRatingsForBook book) books
+            in
             { model
                 | books = Dict.union books model.books
+                , ratings = Dict.union ratings model.ratings
             }
                 ! []
 
@@ -150,51 +155,34 @@ weightsForBook book =
             defaultPriorityWeightsForNonFiction
 
 
-calculatePriority : Book -> Float
-calculatePriority book =
-    calculatePriorityWithWeights (weightsForBook book) book
+type PriorityType
+    = WorstCase
+    | AverageCase
+    | BestCase
 
 
-calculatePriorityWithWeights : PriorityWeights -> Book -> Float
-calculatePriorityWithWeights weights book =
-    Utils.interpolation (priorityWeightsToList weights) (calculatePriorityValues book)
-
-
-normalizedBookRating : Book -> Float
-normalizedBookRating book =
+calculatePriority : PriorityType -> ( Book, CachedRating ) -> Float
+calculatePriority priorityType ( book, cachedRating ) =
     let
-        ratingsCount =
-            ratingsCountForBook book
+        bookRating =
+            case priorityType of
+                WorstCase ->
+                    cachedRating.worstCaseRating
 
-        popularityRating =
-            calculatePopularity ratingsCount
+                AverageCase ->
+                    cachedRating.meanRating
 
-        rating =
-            meanRatingForBook book
+                BestCase ->
+                    cachedRating.bestCaseRating
     in
-    if ratingsCount >= 50 then
-        rating
-    else
-        0.5 * rating + 0.5 * rating * popularityRating
+    Utils.interpolation (priorityWeightsToList (weightsForBook book)) (calculatePriorityValues book cachedRating.betaParameters bookRating)
 
 
-calculatePriorityValues : Book -> List Float
-calculatePriorityValues book =
+calculatePriorityValues : Book -> Beta.BetaDistributionParameters -> Float -> List Float
+calculatePriorityValues book betaParameters bookRating =
     let
-        betaParameters =
-            estimateBetaDistributionParametersForBook book
-
-        ( fifth, ninetyFifth ) =
-            Beta.percentiles 5 betaParameters
-
-        dataConfidence =
-            1 - (ninetyFifth - fifth)
-
         agreement =
             abs (betaParameters.alpha - betaParameters.beta)
-
-        bookRating =
-            meanRatingForBook book
 
         authorsAverageRating =
             calculateAuthorsAverageRating book.authors
@@ -245,24 +233,6 @@ normalizeBookLengthWithParameters optimalBookLengthInPages optimalBookLengthScor
             (optimalBookLengthInPages ^ 2 * optimalBookLengthScore) / (1 - optimalBookLengthScore)
     in
     k / (bookLengthInPages ^ 2 + k)
-
-
-renderPriorityFormula : Book -> String
-renderPriorityFormula book =
-    let
-        weightsAsStrings =
-            List.map toString (priorityWeightsToList (weightsForBook book))
-
-        valuesAsString =
-            List.map (round >> toString) (calculatePriorityValues book)
-
-        priority =
-            round (calculatePriority book)
-
-        formula =
-            List.map2 (\x y -> x ++ " * " ++ y) weightsAsStrings valuesAsString |> String.join " + "
-    in
-    formula ++ " = " ++ toString priority
 
 
 calculateAuthorsAverageRating : List Author -> Float

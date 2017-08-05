@@ -14,19 +14,19 @@ type alias BetaDistributionParameters =
 lnOfGamma : Float -> Float
 lnOfGamma x =
     let
+        cof : List Float
         cof =
             [ 76.18009172947146
             , -86.50532032941678
             , 24.01409824083091
             , -1.231739572450155
-            , 1.208650973866179e-3
-            , -5.395239384953e-6
+            , 0.001208650973866179
+            , -0.000005395239384953
             ]
 
+        -- This is basically 1.000000000190015 + List.sum (List.indexedMap (\j cofJ -> cofJ / (x + toFloat j + 1)) cof) but it causes weird floating point inaccuracies so we fold instead
         ser =
-            1.000000000190015
-                + List.sum
-                    (List.indexedMap (\i cofI -> cofI / (x + toFloat i + 1)) cof)
+            List.foldl (\( j, cofJ ) ser -> ser + cofJ / (x + toFloat j + 1)) 1.000000000190015 (List.indexedMap (,) cof)
 
         tmp =
             x + 5.5 - (x + 0.5) * logBase e (x + 5.5)
@@ -39,10 +39,10 @@ incompleteBeta ({ alpha, beta } as parameters) x =
     let
         bt =
             case x of
-                0.0 ->
+                0 ->
                     0
 
-                1.0 ->
+                1 ->
                     0
 
                 _ ->
@@ -54,17 +54,18 @@ incompleteBeta ({ alpha, beta } as parameters) x =
         1 - bt * betaContinuedFraction { alpha = beta, beta = alpha } (1 - x) / beta
 
 
+makeSureIsGreaterThanZero : Float -> Float
+makeSureIsGreaterThanZero x =
+    if abs x < 1.0e-30 then
+        1.0e-30
+    else
+        x
+
+
 betaContinuedFraction : BetaDistributionParameters -> Float -> Float
-betaContinuedFraction { alpha, beta } x =
+betaContinuedFraction ({ alpha, beta } as parameters) x =
     -- Evaluates the continued fraction for incomplete beta function by modified Lentz's method.
     let
-        capToFpmin : Float -> Float
-        capToFpmin x =
-            if abs x < 1.0e-30 then
-                1.0e-30
-            else
-                x
-
         qab =
             alpha + beta
 
@@ -74,33 +75,52 @@ betaContinuedFraction { alpha, beta } x =
         qam =
             alpha - 1
 
-        stepOfRecurrence : Float -> ( Float, Float, Float ) -> ( Float, Float, Float )
-        stepOfRecurrence aa ( h, c, d ) =
-            let
-                dNew =
-                    1 / capToFpmin (1 + aa * d)
-
-                cNew =
-                    capToFpmin (1 + aa / c)
-
-                hNew =
-                    h * dNew * cNew
-            in
-            ( hNew, dNew, cNew )
-
         d0 =
-            1 / capToFpmin (1 - qab * x / qap)
+            1 / makeSureIsGreaterThanZero (1 - qab * x / qap)
 
         ( h, c, d ) =
-            List.foldl
-                (\m ( h, c, d ) ->
-                    stepOfRecurrence (m * (beta - m) * x / ((qam + 2 * m) * (alpha + 2 * m))) ( h, c, d )
-                        |> stepOfRecurrence (-1 * (alpha + m) * (qab + m) * x / ((alpha + 2 * m) * (qap + 2 * m)))
-                )
-                ( d0, 1, d0 )
-                (List.range 1 100 |> List.map toFloat)
+            betaContinuedFractionRecursion parameters x 1 ( d0, 1, d0 )
     in
     h
+
+
+betaContinuedFractionRecursion : BetaDistributionParameters -> Float -> Float -> ( Float, Float, Float ) -> ( Float, Float, Float )
+betaContinuedFractionRecursion ({ alpha, beta } as parameters) x m ( h, c, d ) =
+    if m == 101 then
+        ( h, c, d )
+    else
+        let
+            qab =
+                alpha + beta
+
+            qap =
+                alpha + 1
+
+            qam =
+                alpha - 1
+
+            stepOfRecurrence : Float -> ( Float, Float, Float ) -> ( Float, Float, Float )
+            stepOfRecurrence aa ( h, c, d ) =
+                let
+                    dNew =
+                        1 / makeSureIsGreaterThanZero (1 + aa * d)
+
+                    cNew =
+                        makeSureIsGreaterThanZero (1 + aa / c)
+
+                    hNew =
+                        h * dNew * cNew
+                in
+                ( hNew, cNew, dNew )
+
+            ( hNew, cNew, dNew ) =
+                stepOfRecurrence (m * (beta - m) * x / ((qam + 2 * m) * (alpha + 2 * m))) ( h, c, d )
+                    |> stepOfRecurrence (-1 * (alpha + m) * (qab + m) * x / ((alpha + 2 * m) * (qap + 2 * m)))
+        in
+        if abs (d * c - 1) < 3.0e-7 then
+            ( h, c, d )
+        else
+            betaContinuedFractionRecursion parameters x (m + 1) ( hNew, cNew, dNew )
 
 
 estimateBetaDistributionParameters : Float -> Float -> BetaDistributionParameters
@@ -124,66 +144,117 @@ estimateBetaDistributionParameters mean variance =
 
 percentiles : Float -> BetaDistributionParameters -> ( Float, Float )
 percentiles percent parameters =
-    ( 0.1, 0.9 )
+    ( inverseCDF parameters percent, inverseCDF parameters (1 - percent) )
 
 
-inverseCDF : Float -> BetaDistributionParameters -> Float
-inverseCDF p { alpha, beta } =
+inverseCDF : BetaDistributionParameters -> Float -> Float
+inverseCDF ({ alpha, beta } as parameters) p =
     if p <= 0 then
         0
     else if p >= 1 then
         1
     else
         let
-            j =
-                0
+            x0 =
+                if alpha >= 1 && beta >= 1 then
+                    let
+                        pp =
+                            if p < 0.5 then
+                                p
+                            else
+                                1 - p
 
-            --TODO
+                        t =
+                            sqrt (-2 * logBase e pp)
+
+                        y =
+                            (if p < 0.5 then
+                                -1
+                             else
+                                1
+                            )
+                                * ((2.30753 + t * 0.27061) / (1 + t * (0.99229 + t * 0.04481)) - t)
+
+                        al =
+                            (y * y - 3) / 6
+
+                        h =
+                            2 / (1 / (2 * alpha - 1) + 1 / (2 * beta - 1))
+
+                        w =
+                            (y * sqrt (al + h) / h) - (1 / (2 * beta - 1) - 1 / (2 * alpha - 1)) * (al + 5 / 6 - 2 / (3 * h))
+                    in
+                    alpha / (alpha + beta * e ^ (2 * w))
+                else
+                    let
+                        lna =
+                            logBase e (alpha / (alpha + beta))
+
+                        lnb =
+                            logBase e (beta / (alpha + beta))
+
+                        t =
+                            e ^ (alpha * lna) / alpha
+
+                        u =
+                            e ^ (beta * lnb) / beta
+
+                        w =
+                            t + u
+                    in
+                    if p < (t / w) then
+                        (alpha * w * p) ^ (1 / alpha)
+                    else
+                        1 - (beta * w * (1 - p)) ^ (1 / beta)
+
             afac =
-                3
-
-            x =
-                0
+                -1 * lnOfGamma alpha - lnOfGamma beta + lnOfGamma (alpha + beta)
         in
+        inverseCDFRecursion parameters afac p 0 x0
+
+
+inverseCDFRecursion : BetaDistributionParameters -> Float -> Float -> Float -> Float -> Float
+inverseCDFRecursion ({ alpha, beta } as parameters) afac p j x =
+    if j == 10 then
         x
+    else
+        let
+            scaleBy : (Float -> Bool) -> (Float -> Float) -> Float -> Float
+            scaleBy condition scaler value =
+                if condition value then
+                    scaler value
+                else
+                    value
+        in
+        case x of
+            0 ->
+                0
 
+            1 ->
+                1
 
+            _ ->
+                let
+                    err =
+                        incompleteBeta parameters x - p
 
--- https://github.com/jstat/jstat/blob/bbb79875c0708c1687e9f8082c63350455130e0e/src/special.js
--- https://github.com/jstat/jstat/blob/master/src/distribution.js
--- convergeOnBeta : BetaDistributionParameters -> Float -> Float -> Float
--- convergeOnBeta ({ alpha, beta } as parameters) afac j x =
---     if j == 10 then
---         x
---     else
---         case x of
---             0 ->
---                 0
---
---             1 ->
---                 1
---
---             _ ->
---                 let
---                     EPS =
---                         1.0e-8
---
---                     err =
---                         4
---
---                     -- TODO
---                     a1 =
---                         alpha -1
---
---                     b1 =
---                         beta - 1
---
---                     t =
---                         exp (a1 * logBase 10 x + b1 * logBase (1 -x) + afac)
---
---                     u =
---                         err / t
---
---                     x_i = x -
---                 in
---                 convergeOnBeta parameters afac (j + 1) x
+                    t =
+                        e ^ ((alpha - 1) * logBase e x + (beta - 1) * logBase e (1 - x) + afac)
+
+                    u =
+                        err / t
+
+                    tNew =
+                        u / (1 - 0.5 * min 1 (u * ((alpha - 1) / x - (beta - 1) / (1 - x))))
+
+                    xNew =
+                        x - tNew
+
+                    xFinal =
+                        scaleBy (\x -> x <= 0) (\x -> 0.5 * (x + tNew)) xNew
+                            |> scaleBy (\x -> x >= 1) (\x -> 0.5 * (x + tNew + 1))
+                in
+                if abs t < 1.0e-8 * xFinal && j > 0 then
+                    xFinal
+                else
+                    inverseCDFRecursion parameters afac p (j + 1) xFinal

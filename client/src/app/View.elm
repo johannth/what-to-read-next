@@ -1,6 +1,5 @@
 module View exposing (rootView)
 
-import Beta
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -27,7 +26,7 @@ bookHasTag selectedTags book =
 
 
 rootView : Model -> Html Msg
-rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, read, errorMessage, selectedTags, tableState, today, buildInfo } =
+rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, ratings, read, errorMessage, selectedTags, tableState, today, buildInfo } =
     let
         expectedMinutesPerPageMultiplier =
             today |> Maybe.andThen (State.calculateExpectedMinutesPerPageMultiplier books read)
@@ -44,6 +43,17 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
 
         filteredList =
             List.filter (bookHasTag selectedTags) expandedList
+                |> List.map
+                    (\book ->
+                        ( book
+                        , case Dict.get book.id ratings of
+                            Just rating ->
+                                rating
+
+                            Nothing ->
+                                calculateRatingsForBook book
+                        )
+                    )
     in
     div [ id "content" ]
         [ h1 [ id "title" ] [ text "What should I read next?" ]
@@ -81,45 +91,26 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, re
         ]
 
 
-config : Maybe Float -> Table.Config Book Msg
+config : Maybe Float -> Table.Config ( Book, CachedRating ) Msg
 config expectedMinutesPerPageMultiplier =
-    if True then
-        Table.config
-            { toId = .id
-            , toMsg = SetTableState
-            , columns =
-                [ titleColumn
-                , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
-                , Table.stringColumn "Type" (.tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
-                , prettyFloatColumn "Data Confidence" (estimateBetaDistributionParametersForBook >> (Beta.percentiles 5 >> (\( fifth, ninetyFifth ) -> 1 - (ninetyFifth - fifth))))
-                , prettyFloatColumn "Rating (0-1)" meanRatingForBook
-                , prettyFloatColumn "Rating (Worst)" (estimateBetaDistributionParametersForBook >> (Beta.percentiles 5 >> Tuple.first))
-                , prettyFloatColumn "Rating (Best)" (estimateBetaDistributionParametersForBook >> Beta.percentiles 5 >> Tuple.second)
-                , prettyFloatColumn "Variance" (varianceOfRatingsForBook >> Maybe.withDefault -1)
-                , prettyFloatColumn "Agreement" (estimateBetaDistributionParametersForBook >> (\{ alpha, beta } -> abs (alpha - beta)))
-                , prettyFloatColumn "Secret (0-1)" State.calculateSecretRating
-                , prettyFloatColumn "Shortness (0-1)" (.numberOfPages >> State.calculateBookLengthRating)
-                , readingTimeColumn expectedMinutesPerPageMultiplier
-                , prettyFloatColumn "Priority" State.calculatePriority
-                ]
-            }
-    else
-        Table.config
-            { toId = .id
-            , toMsg = SetTableState
-            , columns =
-                [ titleColumn
-                , Table.stringColumn "Type" (.tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
-                , Table.stringColumn "Authors" (\book -> String.join ", " (List.map .name book.authors))
-                , Table.stringColumn "Publication Year" (\book -> Maybe.withDefault "?" (Maybe.map toString book.published))
-                , Table.intColumn "Average Rating" (meanRatingForBook >> round)
-                , Table.intColumn "# of Ratings" ratingsCountForBook
-                , Table.intColumn "# of Text Reviews" .textReviewsCount
-                , Table.stringColumn "Number of Pages" (\book -> Maybe.withDefault "?" (Maybe.map toString book.numberOfPages))
-                , readingTimeColumn expectedMinutesPerPageMultiplier
-                , prettyFloatColumn "Priority" State.calculatePriority
-                ]
-            }
+    Table.config
+        { toId = Tuple.first >> .id
+        , toMsg = SetTableState
+        , columns =
+            [ titleColumn
+            , Table.stringColumn "Authors" (\( book, rating ) -> String.join ", " (List.map .name book.authors))
+            , Table.stringColumn "Type" (Tuple.first >> .tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
+            , prettyFloatColumn "Rating (Worst)" (Tuple.second >> .worstCaseRating)
+            , prettyFloatColumn "Rating (Best)" (Tuple.second >> .bestCaseRating)
+            , prettyFloatColumn "Rating (0-1)" (Tuple.second >> .meanRating)
+            , prettyFloatColumn "Secret (0-1)" (Tuple.first >> State.calculateSecretRating)
+            , prettyFloatColumn "Shortness (0-1)" (Tuple.first >> .numberOfPages >> State.calculateBookLengthRating)
+            , readingTimeColumn expectedMinutesPerPageMultiplier
+            , prettyFloatColumn "Priority (Worst)" (State.calculatePriority State.WorstCase)
+            , prettyFloatColumn "Priority (Best)" (State.calculatePriority State.BestCase)
+            , prettyFloatColumn "Priority (0-1)" (State.calculatePriority State.AverageCase)
+            ]
+        }
 
 
 buildInfoView : BuildInfo -> Html Msg
@@ -127,12 +118,12 @@ buildInfoView buildInfo =
     text ("Version: " ++ buildInfo.time ++ " " ++ String.slice 0 8 buildInfo.version ++ "-" ++ buildInfo.tier)
 
 
-titleColumn : Table.Column Book Msg
+titleColumn : Table.Column ( Book, CachedRating ) Msg
 titleColumn =
     Table.veryCustomColumn
         { name = "Title"
-        , viewData = \book -> linkCell book.title book.url
-        , sorter = Table.increasingOrDecreasingBy .title
+        , viewData = \( book, _ ) -> linkCell book.title book.url
+        , sorter = Table.increasingOrDecreasingBy (Tuple.first >> .title)
         }
 
 
@@ -153,11 +144,11 @@ prettyPrintReadingTime readingTimeInMinutes =
         Round.round 1 (readingTimeInMinutes / (24 * 60)) ++ " days"
 
 
-readingTimeColumn : Maybe Float -> Table.Column Book Msg
+readingTimeColumn : Maybe Float -> Table.Column ( Book, CachedRating ) Msg
 readingTimeColumn expectedMinutesPerPageMultiplier =
     let
         readingTime =
-            \book ->
+            \( book, rating ) ->
                 case ( book.numberOfPages, expectedMinutesPerPageMultiplier ) of
                     ( Just numberOfPages, Just expectedMinutesPerPageMultiplier ) ->
                         State.calculateExpectedReadingTimeInMinutes expectedMinutesPerPageMultiplier numberOfPages |> prettyPrintReadingTime

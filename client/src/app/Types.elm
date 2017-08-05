@@ -9,6 +9,29 @@ import Set exposing (Set)
 import Table
 
 
+type alias CachedRating =
+    { betaParameters : Beta.BetaDistributionParameters
+    , worstCaseRating : Float
+    , meanRating : Float
+    , bestCaseRating : Float
+    }
+
+
+calculateRatingsForBook : Book -> CachedRating
+calculateRatingsForBook book =
+    let
+        betaParameters =
+            estimateBetaDistributionParametersForBook book
+
+        meanBookRating =
+            meanRatingForBook book
+
+        ( worstCaseBookRating, bestCaseBookRating ) =
+            Beta.percentiles 0.05 betaParameters
+    in
+    CachedRating betaParameters worstCaseBookRating meanBookRating bestCaseBookRating
+
+
 type alias Model =
     { apiHost : String
     , today : Maybe Date
@@ -17,6 +40,7 @@ type alias Model =
     , shelves : Dict String (List String)
     , read : Dict String ReadStatus
     , books : Dict String Book
+    , ratings : Dict String CachedRating
     , errorMessage : Maybe String
     , selectedTags : Set String
     , buildInfo : BuildInfo
@@ -45,9 +69,10 @@ emptyModel flags =
     , shelves = Dict.empty
     , read = Dict.empty
     , books = Dict.empty
+    , ratings = Dict.empty
     , errorMessage = Nothing
     , selectedTags = Set.empty
-    , tableState = Table.initialSort "Priority"
+    , tableState = Table.initialSort "Priority (Worst)"
     , buildInfo = BuildInfo flags.buildVersion flags.buildTime flags.buildTier
     }
 
