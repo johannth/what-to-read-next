@@ -100,6 +100,8 @@ config expectedMinutesPerPageMultiplier =
             [ titleColumn
             , Table.stringColumn "Authors" (\( book, rating ) -> String.join ", " (List.map .name book.authors))
             , Table.stringColumn "Type" (Tuple.first >> .tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
+            , Table.stringColumn "Year" (Tuple.first >> .published >> Maybe.map toString >> Maybe.withDefault "")
+            , Table.stringColumn "# of Pages" (Tuple.first >> .numberOfPages >> Maybe.map toString >> Maybe.withDefault "")
             , prettyFloatColumn "Rating (Worst)" (Tuple.second >> .worstCaseRating)
             , prettyFloatColumn "Rating (Best)" (Tuple.second >> .bestCaseRating)
             , prettyFloatColumn "Rating (0-1)" (Tuple.second >> .meanRating)
