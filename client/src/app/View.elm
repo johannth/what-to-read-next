@@ -54,29 +54,34 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, ra
                                 calculateRatingsForBook book
                         )
                     )
+
+        downloadProgressCompleted =
+            List.length (List.filterMap .ratingDistribution expandedList)
+
+        downloadProgressTotal =
+            List.length expandedList
     in
     div [ id "content" ]
         [ h1 [ id "title" ] [ text "What should I read next?" ]
         , div [ id "body" ]
             [ userIdTextInput goodReadsUserIdInputCurrentValue
             , userIdView goodReadsUserId
-            , listCountView expandedList
-            , readingSpeedView expectedMinutesPerPageMultiplier
             , div [ id "tags" ] (Set.toList tags |> List.sort |> List.map (tagView selectedTags))
             , div [ id "list" ]
                 [ case list of
                     [] ->
-                        text
-                            (case goodReadsUserId of
-                                Just _ ->
-                                    "Loading..."
+                        case goodReadsUserId of
+                            Just _ ->
+                                loadingIndicator Nothing
 
-                                _ ->
-                                    ""
-                            )
+                            _ ->
+                                text ""
 
                     list ->
-                        Table.view (config expectedMinutesPerPageMultiplier) tableState filteredList
+                        div []
+                            [ loadingIndicator (Just ( downloadProgressCompleted, downloadProgressTotal ))
+                            , Table.view (config expectedMinutesPerPageMultiplier) tableState filteredList
+                            ]
                 ]
             ]
         , case errorMessage of
@@ -89,6 +94,19 @@ rootView { goodReadsUserIdInputCurrentValue, goodReadsUserId, shelves, books, ra
             [ buildInfoView buildInfo
             ]
         ]
+
+
+loadingIndicator : Maybe ( Int, Int ) -> Html Msg
+loadingIndicator progress =
+    case progress of
+        Nothing ->
+            text "Loading..."
+
+        Just ( complete, total ) ->
+            if complete == total then
+                text ""
+            else
+                text ("Loading details " ++ toString complete ++ "/" ++ toString total)
 
 
 config : Maybe Float -> Table.Config ( Book, CachedRating ) Msg
@@ -109,7 +127,6 @@ config expectedMinutesPerPageMultiplier =
             , prettyFloatColumn "Rating" (Tuple.second >> .meanRating)
             , prettyFloatColumn "Secret" (Tuple.first >> State.calculateSecretRating)
             , prettyFloatColumn "Shortness" (Tuple.first >> .numberOfPages >> State.calculateBookLengthRating)
-            , readingTimeColumn expectedMinutesPerPageMultiplier
             , prettyFloatColumn "Priority (Worst)" (State.calculatePriority State.WorstCase)
             , prettyFloatColumn "Priority (Best)" (State.calculatePriority State.BestCase)
             , prettyFloatColumn "Priority" (State.calculatePriority State.AverageCase)

@@ -17,7 +17,6 @@ apiUrl apiHost path =
 fetchUserData : String -> String -> List (Cmd Msg)
 fetchUserData apiHost userId =
     [ getGoodreadsShelfData apiHost "to-read" userId
-    , getGoodreadsShelfData apiHost "read" userId
     ]
 
 
