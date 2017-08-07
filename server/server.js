@@ -216,6 +216,12 @@ const fetchBookDetails = bookId => {
     const bestBookId =
       result.GoodreadsResponse.book[0].work[0].best_book_id[0]['_'];
 
+    // bestBookId does in some cases refer to an audio book
+    // Thus we hold on to this and just the maximum
+    const possibleNrOfPages = parseInt(
+      result.GoodreadsResponse.book[0].num_pages[0]
+    );
+
     const bestData =
       bestBookId === bookId
         ? Promise.resolve(result)
@@ -297,7 +303,10 @@ const fetchBookDetails = bookId => {
             textReviewsCount: parseInt(author.text_reviews_count[0] || '0')
           };
         }),
-        numberOfPages: parseInt(book.num_pages[0]),
+        numberOfPages:
+          possibleNrOfPages || parseInt(book.num_pages[0])
+            ? Math.max(possibleNrOfPages || 0, parseInt(book.num_pages[0]) || 0)
+            : null,
         averageRating: parseFloat(book.average_rating[0] || '0') / 5,
         ratingsCount: parseInt(book.ratings_count[0] || '0'),
         textReviewsCount: parseInt(book.text_reviews_count[0] || '0'),
