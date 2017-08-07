@@ -196,12 +196,26 @@ calculatePriorityValues book betaParameters bookRating =
         bookLengthRating =
             calculateBookLengthRating book.numberOfPages
     in
-    [ bookRating
+    [ bookRatingConfidence book * bookRating
     , authorsAverageRating
     , secretRating
     , passionRating
     , bookLengthRating
     ]
+
+
+bookRatingConfidence : Book -> Float
+bookRatingConfidence book =
+    let
+        ratingsCount =
+            toFloat (ratingsCountForBook book)
+    in
+    case ratingsCount of
+        0 ->
+            0
+
+        _ ->
+            0.2 + 0.8 * min 1 (ratingsCount / 15)
 
 
 calculateSecretRating : Book -> Float

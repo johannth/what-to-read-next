@@ -157,7 +157,7 @@ varianceOfRatingsFromRatingsDistribution ratingDistribution =
     in
     case n of
         0 ->
-            maximumVarianceFromMean mean
+            Beta.maximumVarianceFromMean mean
 
         _ ->
             let
@@ -183,11 +183,6 @@ varianceOfRatingsFromRatingsDistribution ratingDistribution =
                 + (p5 * ((1 - mean) ^ 2))
 
 
-maximumVarianceFromMean : Float -> Float
-maximumVarianceFromMean mean =
-    mean * (1 - mean) - 1.0e-12
-
-
 estimateBetaDistributionParameters : Maybe RatingDistribution -> Float -> Beta.BetaDistributionParameters
 estimateBetaDistributionParameters ratingDistribution defaultMeanRating =
     let
@@ -198,11 +193,11 @@ estimateBetaDistributionParameters ratingDistribution defaultMeanRating =
 
                 Nothing ->
                     if defaultMeanRating == 0.0 then
-                        ( 0.5, maximumVarianceFromMean 0.5 )
+                        ( 0.5, Beta.maximumVarianceFromMean 0.5 )
                     else if defaultMeanRating == 1.0 then
-                        ( 0.99, maximumVarianceFromMean 0.99 )
+                        ( 0.99, Beta.maximumVarianceFromMean 0.99 )
                     else
-                        ( defaultMeanRating, maximumVarianceFromMean defaultMeanRating )
+                        ( defaultMeanRating, Beta.maximumVarianceFromMean defaultMeanRating )
     in
     Beta.estimateBetaDistributionParameters mean variance
 

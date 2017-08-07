@@ -102,15 +102,17 @@ config expectedMinutesPerPageMultiplier =
             , Table.stringColumn "Type" (Tuple.first >> .tags >> normalizedTags >> Set.toList >> List.sort >> String.join ", ")
             , Table.stringColumn "Year" (Tuple.first >> .published >> Maybe.map toString >> Maybe.withDefault "")
             , Table.stringColumn "# of Pages" (Tuple.first >> .numberOfPages >> Maybe.map toString >> Maybe.withDefault "")
+            , Table.stringColumn "# of Ratings" (Tuple.first >> ratingsCountForBook >> toString)
+            , prettyFloatColumn "Data Confidence" (Tuple.first >> State.bookRatingConfidence)
             , prettyFloatColumn "Rating (Worst)" (Tuple.second >> .worstCaseRating)
             , prettyFloatColumn "Rating (Best)" (Tuple.second >> .bestCaseRating)
-            , prettyFloatColumn "Rating (0-1)" (Tuple.second >> .meanRating)
-            , prettyFloatColumn "Secret (0-1)" (Tuple.first >> State.calculateSecretRating)
-            , prettyFloatColumn "Shortness (0-1)" (Tuple.first >> .numberOfPages >> State.calculateBookLengthRating)
+            , prettyFloatColumn "Rating" (Tuple.second >> .meanRating)
+            , prettyFloatColumn "Secret" (Tuple.first >> State.calculateSecretRating)
+            , prettyFloatColumn "Shortness" (Tuple.first >> .numberOfPages >> State.calculateBookLengthRating)
             , readingTimeColumn expectedMinutesPerPageMultiplier
             , prettyFloatColumn "Priority (Worst)" (State.calculatePriority State.WorstCase)
             , prettyFloatColumn "Priority (Best)" (State.calculatePriority State.BestCase)
-            , prettyFloatColumn "Priority (0-1)" (State.calculatePriority State.AverageCase)
+            , prettyFloatColumn "Priority" (State.calculatePriority State.AverageCase)
             ]
         }
 

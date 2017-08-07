@@ -123,23 +123,42 @@ betaContinuedFractionRecursion ({ alpha, beta } as parameters) x m ( h, c, d ) =
             betaContinuedFractionRecursion parameters x (m + 1) ( hNew, cNew, dNew )
 
 
+maximumVarianceFromMean : Float -> Float
+maximumVarianceFromMean mean =
+    mean * (1 - mean) - 1.0e-12
+
+
 estimateBetaDistributionParameters : Float -> Float -> BetaDistributionParameters
 estimateBetaDistributionParameters mean variance =
-    -- mean in [0, 1]
-    -- variance in []
-    case variance of
-        0 ->
-            { alpha = 1, beta = 1 }
+    -- mean in (0, 1)
+    -- variance in (0, maximumVarianceFromMean) < (0, 0.5^2)
+    let
+        adjustedMean =
+            case mean of
+                0.0 ->
+                    0.01
 
-        _ ->
-            let
-                alpha =
-                    ((1 - mean) / variance - 1 / mean) * mean ^ 2
+                1.0 ->
+                    0.99
 
-                beta =
-                    alpha * (1 / mean - 1)
-            in
-            { alpha = alpha, beta = beta }
+                _ ->
+                    mean
+
+        adjustedVariance =
+            case variance of
+                0 ->
+                    maximumVarianceFromMean adjustedMean
+
+                _ ->
+                    variance
+
+        alpha =
+            ((1 - adjustedMean) / adjustedVariance - 1 / adjustedMean) * adjustedMean ^ 2
+
+        beta =
+            alpha * (1 / adjustedMean - 1)
+    in
+    { alpha = alpha, beta = beta }
 
 
 percentiles : Float -> BetaDistributionParameters -> ( Float, Float )
