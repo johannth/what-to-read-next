@@ -1,5 +1,6 @@
 module Tests exposing (..)
 
+import Beta
 import Expect
 import Fuzz exposing (int, list, string, tuple)
 import State exposing (..)
@@ -77,5 +78,26 @@ all =
                     equalFloat
                         0
                         (State.calculatePopularity 0)
+            ]
+        , describe "estimateBetaDistributionParameters"
+            [ test "should return (mean, mean * (1 - mean) - 1.0e-12) if we don't have the rating distribution" <|
+                \() ->
+                    Expect.equal
+                        (Beta.estimateBetaDistributionParameters 0.6 (0.6 * (1 - 0.6) - 1.0e-12))
+                        (estimateBetaDistributionParameters Nothing 0.6)
+            , test "should return (0.5, 0.5 * (1 - 0.5) - 1.0e-12) if we have the rating distribution but no ratings" <|
+                \() ->
+                    Expect.equal
+                        (Beta.estimateBetaDistributionParameters 0.5 (0.5 * (1 - 0.5) - 1.0e-12))
+                        (estimateBetaDistributionParameters (Just (RatingDistribution 0 0 0 0 0)) 0)
+            , test "should return (1 - 1.0e-11, (1 - 1.0e-11) * (1 - (1 - 1.0e-11)) - 1.0e-12) if we have the rating distribution with mean of 1" <|
+                \() ->
+                    let
+                        adjustedMean =
+                            0.99
+                    in
+                    Expect.equal
+                        (Beta.estimateBetaDistributionParameters adjustedMean (adjustedMean * (1 - adjustedMean) - 1.0e-12))
+                        (estimateBetaDistributionParameters Nothing 1)
             ]
         ]

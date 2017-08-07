@@ -21,7 +21,7 @@ calculateRatingsForBook : Book -> CachedRating
 calculateRatingsForBook book =
     let
         betaParameters =
-            estimateBetaDistributionParametersForBook book
+            estimateBetaDistributionParameters book.ratingDistribution book.averageRating
 
         meanBookRating =
             meanRatingForBook book
@@ -157,7 +157,7 @@ varianceOfRatingsFromRatingsDistribution ratingDistribution =
     in
     case n of
         0 ->
-            0
+            maximumVarianceFromMean mean
 
         _ ->
             let
@@ -183,16 +183,26 @@ varianceOfRatingsFromRatingsDistribution ratingDistribution =
                 + (p5 * ((1 - mean) ^ 2))
 
 
-estimateBetaDistributionParametersForBook : Book -> Beta.BetaDistributionParameters
-estimateBetaDistributionParametersForBook book =
+maximumVarianceFromMean : Float -> Float
+maximumVarianceFromMean mean =
+    mean * (1 - mean) - 1.0e-12
+
+
+estimateBetaDistributionParameters : Maybe RatingDistribution -> Float -> Beta.BetaDistributionParameters
+estimateBetaDistributionParameters ratingDistribution defaultMeanRating =
     let
         ( mean, variance ) =
-            case book.ratingDistribution of
+            case ratingDistribution of
                 Just ratingDistribution ->
                     ( meanRatingFromRatingDistribution ratingDistribution, varianceOfRatingsFromRatingsDistribution ratingDistribution )
 
                 Nothing ->
-                    ( book.averageRating, 1 )
+                    if defaultMeanRating == 0.0 then
+                        ( 0.5, maximumVarianceFromMean 0.5 )
+                    else if defaultMeanRating == 1.0 then
+                        ( 0.99, maximumVarianceFromMean 0.99 )
+                    else
+                        ( defaultMeanRating, maximumVarianceFromMean defaultMeanRating )
     in
     Beta.estimateBetaDistributionParameters mean variance
 
@@ -210,7 +220,7 @@ meanRatingFromRatingDistribution ratingDistribution =
     in
     case ratingsCount of
         0 ->
-            0.0
+            0.5
 
         _ ->
             ((0.2 * toFloat ratingDistribution.rating1)

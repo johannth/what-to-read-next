@@ -121,6 +121,20 @@ all =
                         0.7937005259841001
                         (Beta.inverseCDF { alpha = 3, beta = 1 } 0.5)
             ]
+        , describe "estimateBetaDistributionParameters"
+            [ test "estimateBetaDistributionParameters 0.5 1 = 0" <|
+                \() ->
+                    Expect.equal
+                        { alpha = 0.002008032128514081, beta = 0.002008032128514081 }
+                        (Beta.estimateBetaDistributionParameters 0.5 (0.5 * (1 - 0.5) - 0.001))
+            ]
+        , describe "percentiles"
+            [ test "percentiles 0.05 { alpha = -0.375, beta = -0.375} = (0, 1)" <|
+                \() ->
+                    Expect.equal
+                        ( 0, 1 )
+                        (Beta.percentiles 0.05 { alpha = 0.002008032128514081, beta = 0.002008032128514081 })
+            ]
         , describe "elm vs js"
             [ test "log e 0.5 = -0.6931471805599453" <|
                 \() ->
