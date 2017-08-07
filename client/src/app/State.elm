@@ -312,9 +312,9 @@ defaultPriorityWeightsForNonFiction =
 
 defaultPriorityWeightsForFiction : PriorityWeights
 defaultPriorityWeightsForFiction =
-    { rating = 0.6
+    { rating = 0.65
     , authors = 0
-    , secret = 0.1
+    , secret = 0.05
     , passion = 0
     , length = 0.3
     }
