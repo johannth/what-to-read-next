@@ -64,7 +64,7 @@ const buildReadStatusForBook = (rawStartedReading, rawFinishedReading) => {
 };
 
 const promiseThrottle = new PromiseThrottle({
-  requestsPerSecond: 2,
+  requestsPerSecond: 3,
   promiseImplementation: Promise
 });
 
@@ -100,61 +100,96 @@ const goodreadsApiRequest = (url, expiryInSeconds) => {
   });
 };
 
-const fetchShelf = (userId, shelf) => {
+const cleanShelfData = result => {
+  const data = result.GoodreadsResponse.reviews[0].review.map(review => {
+    const book = review.book[0];
+    const goodreadsId = book.id[0]['_'];
+    const numberOfPages = parseInt(book.num_pages[0]);
+    const published = parseInt(book.publication_year[0]);
+
+    const bookData = {
+      id: goodreadsId,
+      title: book.title[0],
+      description: book.description[0],
+      url: `https://www.goodreads.com/book/show/${goodreadsId}`,
+      authors: book.authors[0].author.map(author => {
+        return {
+          id: author.id[0],
+          name: author.name[0],
+          averageRating: parseFloat(author.average_rating[0] || '0') / 5,
+          ratingsCount: parseInt(author.ratings_count[0] || '0'),
+          textReviewsCount: parseInt(author.text_reviews_count[0] || '0')
+        };
+      }),
+      numberOfPages: numberOfPages,
+      averageRating: parseFloat(book.average_rating[0] || '0') / 5,
+      ratingsCount: parseInt(book.ratings_count[0] || '0'),
+      textReviewsCount: parseInt(book.text_reviews_count[0]['_'] || '0'),
+      published: published
+    };
+
+    const readStatus = buildReadStatusForBook(
+      review.started_at[0],
+      review.read_at[0]
+    );
+
+    return { id: goodreadsId, book: bookData, readStatus };
+  });
+
+  const list = data.map(({ id, book, readStatus }) => {
+    return id;
+  });
+  const books = data.reduce((accumulator, { id, book, readStatus }) => {
+    accumulator[id] = book;
+    return accumulator;
+  }, {});
+
+  const readStatus = data.reduce((accumulator, { id, book, readStatus }) => {
+    if (readStatus) {
+      accumulator[id] = readStatus;
+    }
+    return accumulator;
+  }, {});
+
+  return { list, books, readStatus };
+};
+
+const fetchShelfPage = (userId, shelf, page) => {
+  const pageParameter = page === 1 ? '' : `&page=${page}`;
   return goodreadsApiRequest(
-    `https://www.goodreads.com/review/list/${userId}.xml?key=${GOODREADS_API_KEY}&v=2&per_page=200&shelf=${shelf}`,
+    `https://www.goodreads.com/review/list/${userId}.xml?key=${GOODREADS_API_KEY}&v=2&per_page=200&shelf=${shelf}${pageParameter}`,
     60 * 5
   ).then(result => {
-    const data = result.GoodreadsResponse.reviews[0].review.map(review => {
-      const book = review.book[0];
-      const goodreadsId = book.id[0]['_'];
-      const numberOfPages = parseInt(book.num_pages[0]);
-      const published = parseInt(book.publication_year[0]);
+    const { list, books, readStatus } = cleanShelfData(result);
 
-      const bookData = {
-        id: goodreadsId,
-        title: book.title[0],
-        description: book.description[0],
-        url: `https://www.goodreads.com/book/show/${goodreadsId}`,
-        authors: book.authors[0].author.map(author => {
-          return {
-            id: author.id[0],
-            name: author.name[0],
-            averageRating: parseFloat(author.average_rating[0] || '0') / 5,
-            ratingsCount: parseInt(author.ratings_count[0] || '0'),
-            textReviewsCount: parseInt(author.text_reviews_count[0] || '0')
-          };
-        }),
-        numberOfPages: numberOfPages,
-        averageRating: parseFloat(book.average_rating[0] || '0') / 5,
-        ratingsCount: parseInt(book.ratings_count[0] || '0'),
-        textReviewsCount: parseInt(book.text_reviews_count[0]['_'] || '0'),
-        published: published
-      };
+    const hasNextPage =
+      result.GoodreadsResponse.reviews[0]['$']['total'] !=
+      result.GoodreadsResponse.reviews[0]['$']['end'];
 
-      const readStatus = buildReadStatusForBook(
-        review.started_at[0],
-        review.read_at[0]
-      );
+    if (hasNextPage) {
+      return fetchShelfPage(
+        userId,
+        shelf,
+        page + 1
+      ).then(followingPagesResult => {
+        return {
+          list: list.concat(followingPagesResult.list),
+          books: Object.assign(books, followingPagesResult.books),
+          readStatus: Object.assign(readStatus, followingPagesResult.readStatus)
+        };
+      });
+    } else {
+      return { list, books, readStatus, hasNextPage };
+    }
+  });
+};
 
-      return { id: goodreadsId, book: bookData, readStatus };
-    });
-
-    const list = data.map(({ id, book, readStatus }) => {
-      return id;
-    });
-    const books = data.reduce((accumulator, { id, book, readStatus }) => {
-      accumulator[id] = book;
-      return accumulator;
-    }, {});
-
-    const readStatus = data.reduce((accumulator, { id, book, readStatus }) => {
-      if (readStatus) {
-        accumulator[id] = readStatus;
-      }
-      return accumulator;
-    }, {});
-
+const fetchShelf = (userId, shelf) => {
+  return fetchShelfPage(
+    userId,
+    shelf,
+    1
+  ).then(({ list, books, readStatus }) => {
     return { list, books, readStatus };
   });
 };
@@ -181,9 +216,10 @@ const fetchBookDetails = bookId => {
     const bestBookId =
       result.GoodreadsResponse.book[0].work[0].best_book_id[0]['_'];
 
-    const bestData = bestBookId === bookId
-      ? Promise.resolve(result)
-      : requestDetailsPage(bestBookId);
+    const bestData =
+      bestBookId === bookId
+        ? Promise.resolve(result)
+        : requestDetailsPage(bestBookId);
     return bestData.then(bestResult => {
       const book = bestResult.GoodreadsResponse.book[0];
 
@@ -219,7 +255,7 @@ const fetchBookDetails = bookId => {
         'to-read-non-fiction': 'non-fiction'
       };
 
-      const tags = book.popular_shelves[0].shelf
+      const tags = (book.popular_shelves[0].shelf || [])
         .filter(s => s['$']['count'] > 1)
         .map(s => s['$']['name'])
         .filter(tag => {
